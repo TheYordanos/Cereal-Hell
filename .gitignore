@@ -1,0 +1,7 @@
+bin/
+build/
+karl2d/
+
+*.pdb
+*.rdi
+*.exe
