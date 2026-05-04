@@ -96,11 +96,8 @@ player_update :: proc() {
 	collide(false, dxn.y)
 
 	// border
-	if player.pos.x < f32(MAP_MARGIN) do player.pos.x = f32(MAP_MARGIN)
-	if player.pos.x+player.size.x > f32(MAP_SIZE-MAP_MARGIN) do player.pos.x = f32(MAP_SIZE-MAP_MARGIN) - player.size.x
-
-	if player.pos.y < f32(MAP_MARGIN) do player.pos.y = f32(MAP_MARGIN)
-	if player.pos.y+player.size.y > f32(MAP_SIZE-MAP_MARGIN) do player.pos.y = f32(MAP_SIZE-MAP_MARGIN) - player.size.y
+	player.pos.x = clamp(player.pos.x, f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-player.size.x)
+	player.pos.y = clamp(player.pos.y, f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-player.size.y)
 
 	collide :: proc(is_hor: bool, dxn: f32) {
 		player := &state.entity.player
