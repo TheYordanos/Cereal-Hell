@@ -37,6 +37,7 @@ Player :: struct {
 
 Gun :: struct {
 	using e: Entity,
+	original_pos: k2.Vec2,
 	angle: f32,
 	time, fire_rate: f32,
 
@@ -93,6 +94,7 @@ player_init :: proc() {
 
 		gun = {
 			pos = 36*0.5,
+			original_pos = 36*0.5,
 			size = {40, 18},
 			center = {0, 18*0.5},
 			fire_rate = 10
@@ -155,10 +157,10 @@ player_update :: proc() {
 	}
 
 	// gun
-	mouse_dxn := k2.get_mouse_position() - (player.pos+player.gun.pos)
+	mouse_dxn := linalg.normalize(k2.get_mouse_position() - (player.pos+player.gun.pos))
 	player.gun.angle = math.atan2(mouse_dxn.y, mouse_dxn.x)
 
-	firing_point := (player.pos+player.gun.pos) + linalg.normalize(mouse_dxn)*player.gun.size.x
+	firing_point := (player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x
 
 	if player.gun.time < 1/player.gun.fire_rate do player.gun.time += k2.get_frame_time()
 
@@ -166,15 +168,19 @@ player_update :: proc() {
 		// shoot...
 		player.gun.time -= 1/player.gun.fire_rate
 
+		player.gun.pos -= mouse_dxn * 10
+
 		bullet: Bullet = {
 			pos = firing_point,
 			size = 20,
-			dxn = linalg.normalize(mouse_dxn),
+			dxn = mouse_dxn,
 			speed = 600
 		}
 
 		append(&player.gun.bullets, bullet)
 	}
+
+	player.gun.pos = math.lerp(player.gun.pos, player.gun.original_pos, 10 * k2.get_frame_time())
 
 	// bullets
 	#reverse for &bullet, i in player.gun.bullets {
@@ -198,8 +204,8 @@ player_draw :: proc() {
 	// gun
 	k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.BLUE, player.gun.center, player.gun.angle)
 
-	mouse_dxn := k2.get_mouse_position() - (player.pos+player.gun.pos)
-	k2.draw_circle((player.pos+player.gun.pos) + linalg.normalize(mouse_dxn)*player.gun.size.x, 5, k2.BLACK)
+	mouse_dxn := linalg.normalize(k2.get_mouse_position() - (player.pos+player.gun.pos))
+	k2.draw_circle((player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x, 5, k2.BLACK)
 
 	// bullets
 	for bullet in player.gun.bullets {
