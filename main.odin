@@ -1,5 +1,6 @@
 package main
 
+import "core:math"
 import "core:math/rand"
 import "core:math/linalg"
 
@@ -15,7 +16,7 @@ MAP_MARGIN :: 100
 // GLOBALS ========================c
 state: struct {
 	entity: struct {
-		player: Entity
+		player: Player
 	},
 
 	env: struct {
@@ -26,8 +27,18 @@ state: struct {
 // STRUCTS ========================c
 Entity :: struct {
 	pos, size: k2.Vec2,
-
 	speed: f32,
+}
+
+Player :: struct {
+	using e: Entity,
+	gun: Gun
+}
+
+Gun :: struct {
+	using e: Entity,
+	angle: f32,
+	center: k2.Vec2,
 }
 
 // HELPER ========================c
@@ -70,7 +81,13 @@ player_init :: proc() {
 	state.entity.player = {
 		pos = {300, 300},
 		size = 36,
-		speed = 300
+		speed = 300,
+
+		gun = {
+			pos = 36*0.5,
+			size = {40, 18},
+			center = {40, 18*0.5}
+		}
 	}
 }
 
@@ -127,12 +144,19 @@ player_update :: proc() {
 			else if dxn < 0 do player.pos.y = collision_block.pos.y + collision_block.size.y
 		}
 	}
+
+	// gun
+	mouse_dxn := (player.pos+player.gun.pos) - k2.get_mouse_position()
+	player.gun.angle = math.atan2(mouse_dxn.y, mouse_dxn.x)
 }
 
 player_draw :: proc() {
 	player := state.entity.player
 
 	k2.draw_rect_vec(player.pos, player.size, k2.DARK_GREEN)
+
+	// gun
+	k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.BLUE, player.gun.center, player.gun.angle)
 }
 
 main :: proc() {
