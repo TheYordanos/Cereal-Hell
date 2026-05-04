@@ -8,10 +8,16 @@ import k2 "karl2d"
 SCREEN_WIDTH :: 720
 SCREEN_HEIGHT :: 720
 
+MAP_SIZE :: 720
+MAP_MARGIN :: 100
+
 // GLOBALS ========================c
 state: struct {
 	entity: struct {
 		player: Entity
+	},
+
+	env: struct {
 	}
 }
 
@@ -23,7 +29,12 @@ Entity :: struct {
 }
 
 // FUNCTIONS ========================c
-world_draw :: proc() {
+env_draw :: proc() {
+	// borders
+	k2.draw_rect_vec(0, {f32(MAP_SIZE), f32(MAP_MARGIN)}, k2.LIGHT_GRAY)                             // top
+	k2.draw_rect_vec({0, f32(MAP_SIZE-MAP_MARGIN)}, {f32(MAP_SIZE), f32(MAP_MARGIN)}, k2.LIGHT_GRAY) // bottom
+	k2.draw_rect_vec(0, {f32(MAP_MARGIN), f32(MAP_SIZE)}, k2.LIGHT_GRAY)                             // left
+	k2.draw_rect_vec({f32(MAP_SIZE-MAP_MARGIN), 0}, {f32(MAP_MARGIN), f32(MAP_SIZE)}, k2.LIGHT_GRAY) // right
 }
 
 player_init :: proc() {
@@ -95,7 +106,7 @@ step :: proc() -> bool {
 	// DRAW
 	k2.clear(k2.WHITE)
 
-	world_draw()
+	env_draw()
 	player_draw()
 
 	k2.present()
