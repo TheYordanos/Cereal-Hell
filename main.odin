@@ -23,7 +23,7 @@ state: struct {
 
 	entity: struct {
 		player: Player,
-		camera: k2.Camera
+		cam: Cam
 	},
 
 	env: struct {
@@ -85,6 +85,15 @@ Enemy :: struct {
 	type: Enemy_Type,
 
 	fire_rate: f32,
+}
+
+Cam :: struct {
+	main: k2.Camera,
+
+	shake_time: f32,
+	shake_duration: f32,
+
+	shake_amount: f32,
 }
 
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
@@ -238,7 +247,7 @@ player_update :: proc() {
 	}
 
 	// gun
-	mouse_dxn := linalg.normalize(k2.screen_to_world(k2.get_mouse_position(), state.entity.camera) - (player.pos+player.gun.pos))
+	mouse_dxn := linalg.normalize(k2.screen_to_world(k2.get_mouse_position(), state.entity.cam.main) - (player.pos+player.gun.pos))
 	player.gun.angle = math.atan2(mouse_dxn.y, mouse_dxn.x)
 
 	firing_point := (player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x
@@ -248,7 +257,6 @@ player_update :: proc() {
 	if k2.mouse_button_is_held(.Left) && player.gun.time > 1/player.gun.fire_rate {
 		// shoot...
 		player.gun.time -= 1/player.gun.fire_rate
-
 		player.gun.pos -= mouse_dxn * 10
 
 		bullet: Bullet = {
@@ -286,7 +294,7 @@ player_draw :: proc() {
 	)
 
 	if state.config.show_debug {
-		mouse_dxn := linalg.normalize(k2.screen_to_world(k2.get_mouse_position(), state.entity.camera) - (player.pos+player.gun.pos))
+		mouse_dxn := linalg.normalize(k2.screen_to_world(k2.get_mouse_position(), state.entity.cam.main) - (player.pos+player.gun.pos))
 
 		k2.draw_rect_outline({player.pos.x, player.pos.y, player.size.x, player.size.y}, 2, k2.RED)
 		k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.RED, player.gun.center, player.gun.angle)
@@ -352,20 +360,42 @@ bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 }
 
 camera_init :: proc() {
-	state.entity.camera = {
-		offset = ({f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5),
-		zoom = 1
+	state.entity.cam = {
+		main = {
+			offset = ({f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5),
+			zoom = 1
+		},
+		shake_duration = 0.1,
+		shake_amount = 5
 	}
 }
 
+camera_shake :: proc(amount: f32 = 5, duration: f32 = 0.1) {
+	state.entity.cam.shake_duration = duration
+	state.entity.cam.shake_amount = amount
+	state.entity.cam.shake_time = state.entity.cam.shake_duration
+}
+
 camera_update :: proc() {
-	camera := &state.entity.camera
+	camera := &state.entity.cam
 	player := state.entity.player
 
-	camera.target = player.pos+player.size*0.5
+	camera.main.target = player.pos+player.size*0.5
 
-	camera.target.x = clamp(camera.target.x, f32(SCREEN_WIDTH)*0.5, f32(MAP_SIZE)-f32(SCREEN_WIDTH)*0.5)
-	camera.target.y = clamp(camera.target.y, f32(SCREEN_HEIGHT)*0.5, f32(MAP_SIZE)-f32(SCREEN_HEIGHT)*0.5)
+	camera.main.target.x = clamp(camera.main.target.x, f32(SCREEN_WIDTH)*0.5, f32(MAP_SIZE)-f32(SCREEN_WIDTH)*0.5)
+	camera.main.target.y = clamp(camera.main.target.y, f32(SCREEN_HEIGHT)*0.5, f32(MAP_SIZE)-f32(SCREEN_HEIGHT)*0.5)
+
+	if camera.shake_time > 0 {
+		shake: f32 = camera.shake_amount * (camera.shake_time / camera.shake_duration)
+		camera.main.offset = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 + {
+			rand.float32_range(-shake, shake),
+			rand.float32_range(-shake, shake)
+		}
+
+		camera.shake_time -= k2.get_frame_time()
+	} else {
+		camera.main.offset = ({f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5)
+	}
 }
 
 enemies_init :: proc() {
@@ -512,6 +542,7 @@ enemies_update :: proc() {
 					bullet.scale = 1
 					bullet.is_hit = true
 					enemy.is_hit = true
+					camera_shake(5, 0.2)
 					break
 				}
 			}
@@ -658,7 +689,7 @@ step :: proc() -> bool {
 	enemies_update()
 
 	// DRAW
-	k2.set_camera(state.entity.camera)
+	k2.set_camera(state.entity.cam.main)
 	k2.clear(k2.WHITE)
 
 	env_draw()
