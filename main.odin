@@ -46,6 +46,13 @@ Entity :: struct {
 	pos, size, dxn: k2.Vec2,
 	speed: f32,
 	center: k2.Vec2,
+
+	is_hit: bool,
+	remove: bool,
+
+	scale, max_scale: f32,
+	die_time, time: f32,
+	alpha: u8
 }
 
 Player :: struct {
@@ -57,7 +64,7 @@ Gun :: struct {
 	using e: Entity,
 	original_pos: k2.Vec2,
 	angle: f32,
-	time, fire_rate: f32,
+	fire_rate: f32,
 
 	bullets: [dynamic]Bullet,
 }
@@ -65,18 +72,11 @@ Gun :: struct {
 Bullet :: struct {
 	using e: Entity,
 	idx: i32,
-
-	is_hit: bool,
-	remove: bool,
-
-	scale, max_scale: f32,
-	die_time, time: f32,
-	alpha: u8
 }
 
 Enemy :: struct {
 	using e: Entity,
-	type: Enemy_Type
+	type: Enemy_Type,
 }
 
 Enemy_Type :: enum byte { FOLLOWER }
@@ -342,24 +342,39 @@ enemies_update :: proc() {
 		switch enemy.type {
 			case .FOLLOWER:
 			{
-				enemy.dxn = linalg.normalize(player.pos+player.size*0.5 - enemy.pos)
-				enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
+				if !enemy.is_hit {
+					enemy.dxn = linalg.normalize(player.pos+player.size*0.5 - enemy.pos)
+					enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
+				}
 			}
 		}
 
-		for &bullet in player.gun.bullets {
-			if !bullet.is_hit && check_collision_circle_rec(
-				bullet.pos, bullet.size.x,
-				{
-					enemy.pos.x-enemy.size.x, enemy.pos.y-enemy.size.y,
-					enemy.size.x, enemy.size.y
+		if enemy.is_hit {
+			enemy.dxn = 0
+			enemy.scale += (enemy.max_scale - enemy.scale) * (enemy.time / enemy.die_time)
+			enemy.alpha = u8(255 - (255 * enemy.time / enemy.die_time))
+
+			if enemy.time < enemy.die_time do enemy.time += k2.get_frame_time()
+			else {
+				enemy.is_hit = false
+				enemy.remove = true
+			}
+		} else {
+			for &bullet in player.gun.bullets {
+				if !bullet.is_hit && check_collision_circle_rec(
+					bullet.pos, bullet.size.x,
+					{
+						enemy.pos.x-enemy.size.x, enemy.pos.y-enemy.size.y,
+						enemy.size.x, enemy.size.y
+					}
+				) {
+					bullet.is_hit = true
+					enemy.is_hit = true
+					break
 				}
-			) {
-				bullet.is_hit = true
-				unordered_remove(&state.env.enemies, i)
-				break
 			}
 		}
+		if enemy.remove do unordered_remove(&state.env.enemies, i)
 	}
 }
 
@@ -368,10 +383,13 @@ enemies_draw :: proc() {
 		switch enemy.type {
 			case .FOLLOWER:
 			{
-				k2.draw_texture(
+				k2.draw_texture_fit(
 					state.textures.follower,
-					enemy.pos, enemy.center,
-					math.atan2(enemy.dxn.y, enemy.dxn.x)
+					{0, 0, enemy.size.x, enemy.size.y},
+					{enemy.pos.x, enemy.pos.y, enemy.size.x*enemy.scale, enemy.size.y*enemy.scale},
+					enemy.center*enemy.scale,
+					math.atan2(enemy.dxn.y, enemy.dxn.x),
+					{255, 255, 255, enemy.alpha}
 				)
 			}
 		}
@@ -400,7 +418,12 @@ enemy_spawn_random :: proc() {
 		size = size,
 		center = size*0.5,
 		type = type,
-		speed = speed
+		speed = speed,
+
+		scale = 1,
+		max_scale = 3,
+		alpha = 255,
+		die_time = 0.3
 	}
 
 	append(&state.env.enemies, enemy)
