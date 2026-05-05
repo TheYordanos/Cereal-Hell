@@ -13,7 +13,7 @@ SCREEN_HEIGHT :: 720
 MAP_SIZE :: 1440
 MAP_MARGIN :: 100
 
-MIN_ENEMY_COUNT :: 40
+MIN_ENEMY_COUNT :: 20
 
 // GLOBALS ========================c
 state: struct {
@@ -28,16 +28,19 @@ state: struct {
 
 	env: struct {
 		random_blocks: [20]Entity,
-		enemies: [dynamic]Enemy
+		enemies: [dynamic]Enemy,
+		bullets: [dynamic]Bullet
 	},
 
 	textures: struct {
 		player,
 		p_gun,
 		p_bullets,
+		e_bullet,
 		border,
 
-		follower: k2.Texture,
+		follower,
+		cross: k2.Texture,
 	}
 }
 
@@ -77,9 +80,12 @@ Bullet :: struct {
 Enemy :: struct {
 	using e: Entity,
 	type: Enemy_Type,
+
+	fire_rate: f32,
 }
 
-Enemy_Type :: enum byte { FOLLOWER }
+Firing_Point :: struct { pos, dxn: k2.Vec2 }
+Enemy_Type :: enum byte { FOLLOWER, CROSS }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -112,6 +118,10 @@ env_init :: proc() {
 	}
 }
 
+env_update :: proc() {
+	bullets_update(&state.env.bullets)
+}
+
 env_draw :: proc() {
 	// borders
 	k2.draw_texture(state.textures.border, 0)                                    // top
@@ -129,6 +139,18 @@ env_draw :: proc() {
 	// random blocks
 	for block in state.env.random_blocks {
 		k2.draw_rect_vec(block.pos, block.size, k2.LIGHT_GRAY)
+	}
+
+	// bullets
+	for bullet in state.env.bullets {
+		k2.draw_texture_fit(
+			state.textures.e_bullet,
+			{0, 0, bullet.size.x, bullet.size.y},
+			{bullet.pos.x, bullet.pos.y, bullet.size.x*bullet.scale, bullet.size.y*bullet.scale},
+			bullet.center*bullet.scale,
+			math.atan2(bullet.dxn.y, bullet.dxn.x),
+			{255, 255, 255, bullet.alpha}
+		)
 	}
 }
 
@@ -234,45 +256,7 @@ player_update :: proc() {
 	player.gun.pos = math.lerp(player.gun.pos, player.gun.original_pos, 10 * k2.get_frame_time())
 
 	// bullets
-	#reverse for &bullet, i in player.gun.bullets {
-		bullet.pos += bullet.dxn * bullet.speed * k2.get_frame_time()
-
-		// blocks
-		for block in state.env.random_blocks {
-			if check_collision_circle_rec(
-				bullet.pos, bullet.size.x,
-				{block.pos.x, block.pos.y, block.size.x, block.size.y}
-			) {
-				bullet.is_hit = true
-				break
-			}
-		}
-
-		// is hit
-		if bullet.is_hit {
-			bullet.dxn = 0
-			bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
-			bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
-
-			if bullet.time < bullet.die_time do bullet.time += k2.get_frame_time()
-			else {
-				bullet.is_hit = false
-				bullet.remove = true
-			}
-		}
-		else {
-			// boundary
-			if bullet.pos.x < f32(MAP_MARGIN) ||
-				bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
-				bullet.pos.y < f32(MAP_MARGIN) ||
-				bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
-				bullet.is_hit = true
-			}
-		}
-
-		// remove
-		if bullet.remove do unordered_remove(&player.gun.bullets, i)
-	}
+	bullets_update(&player.gun.bullets)
 }
 
 player_draw :: proc() {
@@ -307,6 +291,48 @@ player_draw :: proc() {
 		)
 
 		if state.config.show_debug do k2.draw_circle_outline(bullet.pos, bullet.size.x*0.5, 2, k2.RED)
+	}
+}
+
+bullets_update :: proc(bullets: ^[dynamic]Bullet) {
+	#reverse for &bullet, i in bullets {
+		bullet.pos += bullet.dxn * bullet.speed * k2.get_frame_time()
+
+		// blocks
+		for block in state.env.random_blocks {
+			if check_collision_circle_rec(
+				bullet.pos, bullet.size.x,
+				{block.pos.x, block.pos.y, block.size.x, block.size.y}
+			) {
+				bullet.is_hit = true
+				break
+			}
+		}
+
+		// is hit
+		if bullet.is_hit {
+			bullet.speed = 0
+			bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
+			bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
+
+			if bullet.time < bullet.die_time do bullet.time += k2.get_frame_time()
+			else {
+				bullet.is_hit = false
+				bullet.remove = true
+			}
+		}
+		else {
+			// boundary
+			if bullet.pos.x < f32(MAP_MARGIN) ||
+				bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
+				bullet.pos.y < f32(MAP_MARGIN) ||
+				bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
+				bullet.is_hit = true
+			}
+		}
+
+		// remove
+		if bullet.remove do unordered_remove(bullets, i)
 	}
 }
 
@@ -347,10 +373,62 @@ enemies_update :: proc() {
 					enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
 				}
 			}
+			case .CROSS:
+			{
+				if !enemy.is_hit {
+					enemy.scale = math.lerp(enemy.scale, 1, 10 * k2.get_frame_time())
+
+					if enemy.time < 1/enemy.fire_rate do enemy.time += k2.get_frame_time()
+					else {
+						enemy.time -= 1/enemy.fire_rate
+						enemy.scale = 2
+
+						firing_points: [4]Firing_Point = {
+							{
+								pos = {enemy.pos.x, enemy.pos.y-enemy.size.y*0.5},
+								dxn = {0, -1}
+							},
+							{
+								pos = {enemy.pos.x, enemy.pos.y+enemy.size.y*0.5},
+								dxn = {0, +1}
+							},
+							{
+								pos = {enemy.pos.x-enemy.size.x*0.5, enemy.pos.y},
+								dxn = {-1, 0}
+							},
+							{
+								pos = {enemy.pos.x+enemy.size.x*0.5, enemy.pos.y},
+								dxn = {+1, 0}
+							}
+						}
+
+						for point in firing_points {
+							bullet: Bullet = {
+								pos = point.pos,
+								dxn = point.dxn,
+								size = f32(state.textures.e_bullet.width),
+								center = ({
+									f32(state.textures.e_bullet.width),
+									f32(state.textures.e_bullet.height)
+								}*0.5),
+
+								speed = 300,
+
+								scale = 1,
+								max_scale = 3,
+								alpha = 255,
+								die_time = 0.3
+							}
+
+							append(&state.env.bullets, bullet)
+						}
+					}
+				}
+			}
 		}
 
 		if enemy.is_hit {
-			enemy.dxn = 0
+			enemy.speed = 0
 			enemy.scale += (enemy.max_scale - enemy.scale) * (enemy.time / enemy.die_time)
 			enemy.alpha = u8(255 - (255 * enemy.time / enemy.die_time))
 
@@ -380,19 +458,23 @@ enemies_update :: proc() {
 
 enemies_draw :: proc() {
 	for enemy in state.env.enemies {
+		texture: k2.Texture
+
 		switch enemy.type {
 			case .FOLLOWER:
-			{
-				k2.draw_texture_fit(
-					state.textures.follower,
-					{0, 0, enemy.size.x, enemy.size.y},
-					{enemy.pos.x, enemy.pos.y, enemy.size.x*enemy.scale, enemy.size.y*enemy.scale},
-					enemy.center*enemy.scale,
-					math.atan2(enemy.dxn.y, enemy.dxn.x),
-					{255, 255, 255, enemy.alpha}
-				)
-			}
+				texture = state.textures.follower
+			case .CROSS:
+				texture = state.textures.cross
 		}
+
+		k2.draw_texture_fit(
+			texture,
+			{0, 0, enemy.size.x, enemy.size.y},
+			{enemy.pos.x, enemy.pos.y, enemy.size.x*enemy.scale, enemy.size.y*enemy.scale},
+			enemy.center*enemy.scale,
+			math.atan2(enemy.dxn.y, enemy.dxn.x),
+			{255, 255, 255, enemy.alpha}
+		)
 	}
 }
 
@@ -400,25 +482,38 @@ enemy_spawn_random :: proc() {
 	type := Enemy_Type(rand.int31() % len(Enemy_Type))
 
 	follower_size: k2.Vec2 = {f32(state.textures.follower.width), f32(state.textures.follower.height)}
+	cross_size: k2.Vec2 = {f32(state.textures.cross.width), f32(state.textures.cross.height)}
 
+	rand_pos: k2.Vec2
 	size: k2.Vec2
 	speed: f32
+	fire_rate: f32
 
 	switch type {
 		case .FOLLOWER:
 			size = follower_size
+			rand_pos = {
+				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
+				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
+			}
 			speed = 100
+		case .CROSS:
+			size = cross_size
+			rand_pos = {
+				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
+				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
+			}
+			fire_rate = 2
 	}
 
 	enemy: Enemy = {
-		pos = {
-			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
-			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
-		},
+		pos = rand_pos,
 		size = size,
 		center = size*0.5,
 		type = type,
 		speed = speed,
+
+		fire_rate = fire_rate,
 
 		scale = 1,
 		max_scale = 3,
@@ -434,8 +529,10 @@ load_assets :: proc() {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
 		p_gun = k2.load_texture_from_bytes(#load("res/sprites/p_gun.png")),
 		p_bullets = k2.load_texture_from_bytes(#load("res/sprites/p_bullets.png")),
+		e_bullet = k2.load_texture_from_bytes(#load("res/sprites/e_bullet.png")),
 		border = k2.load_texture_from_bytes(#load("res/sprites/border.png")),
 		follower = k2.load_texture_from_bytes(#load("res/sprites/follower.png")),
+		cross = k2.load_texture_from_bytes(#load("res/sprites/cross.png")),
 	}
 }
 
@@ -443,8 +540,10 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.player)
 	k2.destroy_texture(state.textures.p_gun)
 	k2.destroy_texture(state.textures.p_bullets)
+	k2.destroy_texture(state.textures.e_bullet)
 	k2.destroy_texture(state.textures.border)
 	k2.destroy_texture(state.textures.follower)
+	k2.destroy_texture(state.textures.cross)
 }
 
 main :: proc() {
@@ -472,6 +571,7 @@ step :: proc() -> bool {
 	}
 
 	if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
+	env_update()
 	player_update()
 	camera_update()
 	enemies_update()
@@ -494,6 +594,7 @@ step :: proc() -> bool {
 shutdown :: proc() {
 	delete(state.entity.player.gun.bullets)
 	delete(state.env.enemies)
+	delete(state.env.bullets)
 
 	unload_assets()
 
