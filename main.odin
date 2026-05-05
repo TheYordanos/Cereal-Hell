@@ -10,7 +10,7 @@ import k2 "karl2d"
 SCREEN_WIDTH :: 720
 SCREEN_HEIGHT :: 720
 
-MAP_SIZE :: 720
+MAP_SIZE :: 1440
 MAP_MARGIN :: 100
 
 // GLOBALS ========================c
@@ -24,13 +24,14 @@ state: struct {
 	},
 
 	env: struct {
-		random_blocks: [3]Entity
+		random_blocks: [20]Entity
 	},
 
 	textures: struct {
 		player,
 		p_gun,
-		p_bullets: k2.Texture,
+		p_bullets,
+		border: k2.Texture,
 	}
 }
 
@@ -93,10 +94,17 @@ env_init :: proc() {
 
 env_draw :: proc() {
 	// borders
-	k2.draw_rect_vec(0, {f32(MAP_SIZE), f32(MAP_MARGIN)}, k2.LIGHT_GRAY)                             // top
-	k2.draw_rect_vec({0, f32(MAP_SIZE-MAP_MARGIN)}, {f32(MAP_SIZE), f32(MAP_MARGIN)}, k2.LIGHT_GRAY) // bottom
-	k2.draw_rect_vec(0, {f32(MAP_MARGIN), f32(MAP_SIZE)}, k2.LIGHT_GRAY)                             // left
-	k2.draw_rect_vec({f32(MAP_SIZE-MAP_MARGIN), 0}, {f32(MAP_MARGIN), f32(MAP_SIZE)}, k2.LIGHT_GRAY) // right
+	k2.draw_texture(state.textures.border, 0)                                    // top
+	k2.draw_texture(state.textures.border, {f32(MAP_SIZE), 0}, 0, math.PI*0.5)   // right
+	k2.draw_texture(state.textures.border, {0, f32(MAP_SIZE-MAP_MARGIN)})        // bottom
+	k2.draw_texture(state.textures.border, {f32(MAP_MARGIN), 0}, 0, math.PI*0.5) // left
+
+	if state.config.show_debug {
+		k2.draw_rect_vec(0, {f32(MAP_SIZE), f32(MAP_MARGIN)}, k2.LIGHT_GRAY)                             // top
+		k2.draw_rect_vec({f32(MAP_SIZE-MAP_MARGIN), 0}, {f32(MAP_MARGIN), f32(MAP_SIZE)}, k2.LIGHT_GRAY) // right
+		k2.draw_rect_vec({0, f32(MAP_SIZE-MAP_MARGIN)}, {f32(MAP_SIZE), f32(MAP_MARGIN)}, k2.LIGHT_GRAY) // bottom
+		k2.draw_rect_vec(0, {f32(MAP_MARGIN), f32(MAP_SIZE)}, k2.LIGHT_GRAY)                             // left
+	}
 
 	// random blocks
 	for block in state.env.random_blocks {
@@ -273,9 +281,10 @@ player_draw :: proc() {
 
 load_assets :: proc() {
 	state.textures = {
-		player = k2.load_texture_from_file("res/sprites/player.png"),
-		p_gun = k2.load_texture_from_file("res/sprites/p_gun.png"),
-		p_bullets = k2.load_texture_from_file("res/sprites/p_bullets.png"),
+		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
+		p_gun = k2.load_texture_from_bytes(#load("res/sprites/p_gun.png")),
+		p_bullets = k2.load_texture_from_bytes(#load("res/sprites/p_bullets.png")),
+		border = k2.load_texture_from_bytes(#load("res/sprites/border.png")),
 	}
 }
 
@@ -283,6 +292,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.player)
 	k2.destroy_texture(state.textures.p_gun)
 	k2.destroy_texture(state.textures.p_bullets)
+	k2.destroy_texture(state.textures.border)
 }
 
 main :: proc() {
