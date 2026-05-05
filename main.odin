@@ -20,7 +20,8 @@ state: struct {
 	},
 
 	entity: struct {
-		player: Player
+		player: Player,
+		camera: k2.Camera
 	},
 
 	env: struct {
@@ -183,7 +184,7 @@ player_update :: proc() {
 	}
 
 	// gun
-	mouse_dxn := linalg.normalize(k2.get_mouse_position() - (player.pos+player.gun.pos))
+	mouse_dxn := linalg.normalize(k2.screen_to_world(k2.get_mouse_position(), state.entity.camera) - (player.pos+player.gun.pos))
 	player.gun.angle = math.atan2(mouse_dxn.y, mouse_dxn.x)
 
 	firing_point := (player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x
@@ -257,9 +258,9 @@ player_draw :: proc() {
 		player.gun.angle
 	)
 
-	mouse_dxn := linalg.normalize(k2.get_mouse_position() - (player.pos+player.gun.pos))
-
 	if state.config.show_debug {
+		mouse_dxn := linalg.normalize(k2.screen_to_world(k2.get_mouse_position(), state.entity.camera) - (player.pos+player.gun.pos))
+
 		k2.draw_rect_outline({player.pos.x, player.pos.y, player.size.x, player.size.y}, 2, k2.RED)
 		k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.RED, player.gun.center, player.gun.angle)
 		k2.draw_circle((player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x, 5, k2.BLACK)
@@ -277,6 +278,23 @@ player_draw :: proc() {
 
 		if state.config.show_debug do k2.draw_circle_outline(bullet.pos, bullet.size.x*0.5, 2, k2.RED)
 	}
+}
+
+camera_init :: proc() {
+	state.entity.camera = {
+		offset = ({f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5),
+		zoom = 1
+	}
+}
+
+camera_update :: proc() {
+	camera := &state.entity.camera
+	player := state.entity.player
+
+	camera.target = player.pos+player.size*0.5
+
+	camera.target.x = clamp(camera.target.x, f32(SCREEN_WIDTH)*0.5, f32(MAP_SIZE)-f32(SCREEN_WIDTH)*0.5)
+	camera.target.y = clamp(camera.target.y, f32(SCREEN_HEIGHT)*0.5, f32(MAP_SIZE)-f32(SCREEN_HEIGHT)*0.5)
 }
 
 load_assets :: proc() {
@@ -307,6 +325,7 @@ init :: proc() {
 
 	load_assets()
 
+	camera_init()
 	env_init()
 	player_init()
 }
@@ -317,14 +336,18 @@ step :: proc() -> bool {
 		return false
 	}
 
+	camera_update()
 	if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
 	player_update()
 
 	// DRAW
+	k2.set_camera(state.entity.camera)
 	k2.clear(k2.WHITE)
 
 	env_draw()
 	player_draw()
+
+	k2.set_camera(nil)
 
 	k2.present()
 
