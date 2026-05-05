@@ -36,7 +36,9 @@ state: struct {
 		player,
 		p_gun,
 		p_bullets,
-		e_bullet,
+		c_bullet,
+		grape,
+		g_bullet,
 		border,
 
 		follower,
@@ -48,6 +50,7 @@ state: struct {
 Entity :: struct {
 	pos, size, dxn: k2.Vec2,
 	speed: f32,
+	angle: f32,
 	center: k2.Vec2,
 
 	is_hit: bool,
@@ -66,7 +69,6 @@ Player :: struct {
 Gun :: struct {
 	using e: Entity,
 	original_pos: k2.Vec2,
-	angle: f32,
 	fire_rate: f32,
 
 	bullets: [dynamic]Bullet,
@@ -75,6 +77,7 @@ Gun :: struct {
 Bullet :: struct {
 	using e: Entity,
 	idx: i32,
+	type: Bullet_Type
 }
 
 Enemy :: struct {
@@ -85,7 +88,8 @@ Enemy :: struct {
 }
 
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
-Enemy_Type :: enum byte { FOLLOWER, CROSS }
+Enemy_Type :: enum byte { FOLLOWER, CROSS, GRAPE }
+Bullet_Type :: enum byte { CROSS, GRAPE }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -143,8 +147,17 @@ env_draw :: proc() {
 
 	// bullets
 	for bullet in state.env.bullets {
+		texture: k2.Texture
+
+		switch bullet.type {
+			case .CROSS:
+				texture = state.textures.c_bullet
+			case .GRAPE:
+				texture = state.textures.g_bullet
+		}
+
 		k2.draw_texture_fit(
-			state.textures.e_bullet,
+			texture,
 			{0, 0, bullet.size.x, bullet.size.y},
 			{bullet.pos.x, bullet.pos.y, bullet.size.x*bullet.scale, bullet.size.y*bullet.scale},
 			bullet.center*bullet.scale,
@@ -311,9 +324,9 @@ bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 
 		// is hit
 		if bullet.is_hit {
-			bullet.speed = 0
-			bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
-			bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
+		   bullet.speed = 0
+		   bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
+		   bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
 
 			if bullet.time < bullet.die_time do bullet.time += k2.get_frame_time()
 			else {
@@ -324,9 +337,11 @@ bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 		else {
 			// boundary
 			if bullet.pos.x < f32(MAP_MARGIN) ||
-				bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
-				bullet.pos.y < f32(MAP_MARGIN) ||
-				bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
+			   bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
+			   bullet.pos.y < f32(MAP_MARGIN) ||
+			   bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
+
+				bullet.scale = 1
 				bullet.is_hit = true
 			}
 		}
@@ -384,32 +399,20 @@ enemies_update :: proc() {
 						enemy.scale = 2
 
 						firing_points: [4]Firing_Point = {
-							{
-								pos = {enemy.pos.x, enemy.pos.y-enemy.size.y*0.5},
-								dxn = {0, -1}
-							},
-							{
-								pos = {enemy.pos.x, enemy.pos.y+enemy.size.y*0.5},
-								dxn = {0, +1}
-							},
-							{
-								pos = {enemy.pos.x-enemy.size.x*0.5, enemy.pos.y},
-								dxn = {-1, 0}
-							},
-							{
-								pos = {enemy.pos.x+enemy.size.x*0.5, enemy.pos.y},
-								dxn = {+1, 0}
-							}
+							{ pos = {enemy.pos.x, enemy.pos.y-enemy.size.y*0.5}, dxn = {0, -1} },
+							{ pos = {enemy.pos.x, enemy.pos.y+enemy.size.y*0.5}, dxn = {0, +1} },
+							{ pos = {enemy.pos.x-enemy.size.x*0.5, enemy.pos.y}, dxn = {-1, 0} },
+							{ pos = {enemy.pos.x+enemy.size.x*0.5, enemy.pos.y}, dxn = {+1, 0} }
 						}
 
 						for point in firing_points {
 							bullet: Bullet = {
 								pos = point.pos,
 								dxn = point.dxn,
-								size = f32(state.textures.e_bullet.width),
+								size = f32(state.textures.c_bullet.width),
 								center = ({
-									f32(state.textures.e_bullet.width),
-									f32(state.textures.e_bullet.height)
+									f32(state.textures.c_bullet.width),
+									f32(state.textures.c_bullet.height)
 								}*0.5),
 
 								speed = 300,
@@ -417,7 +420,67 @@ enemies_update :: proc() {
 								scale = 1,
 								max_scale = 3,
 								alpha = 255,
-								die_time = 0.3
+								die_time = 0.3,
+
+								type = .CROSS
+							}
+
+							append(&state.env.bullets, bullet)
+						}
+					}
+				}
+			}
+			case .GRAPE:
+			{
+				if !enemy.is_hit {
+					enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
+
+					if enemy.pos.x < f32(MAP_MARGIN) || enemy.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
+						enemy.pos.y < f32(MAP_MARGIN) || enemy.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
+
+						enemy.dxn *= -1
+					}
+
+					enemy.pos.x = clamp(enemy.pos.x, f32(MAP_MARGIN), f32(MAP_SIZE+MAP_MARGIN))
+					enemy.pos.y = clamp(enemy.pos.y, f32(MAP_MARGIN), f32(MAP_SIZE+MAP_MARGIN))
+
+					// bullet
+					enemy.scale = math.lerp(enemy.scale, 1, 10 * k2.get_frame_time())
+					enemy.angle += 90 * k2.get_frame_time()
+
+					if enemy.time < 1/enemy.fire_rate do enemy.time += k2.get_frame_time()
+					else {
+						enemy.time -= 1/enemy.fire_rate
+						enemy.scale = 0.5
+
+						x: f32 = math.cos(linalg.to_radians(enemy.angle))
+						y: f32 = math.sin(linalg.to_radians(enemy.angle))
+
+						firing_points: [4]Firing_Point = {
+							{ dxn = {x,y} },
+							{ dxn = {-x,-y} },
+							{ dxn = {y,-x} },
+							{ dxn = {-y,x} }
+						}
+
+						for point in firing_points {
+							bullet: Bullet = {
+								pos = enemy.pos,
+								dxn = point.dxn,
+								size = f32(state.textures.g_bullet.width),
+								center = ({
+									f32(state.textures.g_bullet.width),
+									f32(state.textures.g_bullet.height)
+								}*0.5),
+
+								speed = 100,
+
+								scale = 1,
+								max_scale = 3,
+								alpha = 255,
+								die_time = 0.3,
+
+								type = .GRAPE
 							}
 
 							append(&state.env.bullets, bullet)
@@ -446,12 +509,14 @@ enemies_update :: proc() {
 						enemy.size.x, enemy.size.y
 					}
 				) {
+					bullet.scale = 1
 					bullet.is_hit = true
 					enemy.is_hit = true
 					break
 				}
 			}
 		}
+
 		if enemy.remove do unordered_remove(&state.env.enemies, i)
 	}
 }
@@ -465,6 +530,8 @@ enemies_draw :: proc() {
 				texture = state.textures.follower
 			case .CROSS:
 				texture = state.textures.cross
+			case .GRAPE:
+				texture = state.textures.grape
 		}
 
 		k2.draw_texture_fit(
@@ -483,27 +550,35 @@ enemy_spawn_random :: proc() {
 
 	follower_size: k2.Vec2 = {f32(state.textures.follower.width), f32(state.textures.follower.height)}
 	cross_size: k2.Vec2 = {f32(state.textures.cross.width), f32(state.textures.cross.height)}
+	grape_size: k2.Vec2 = {f32(state.textures.grape.width), f32(state.textures.grape.height)}
 
-	rand_pos: k2.Vec2
 	size: k2.Vec2
 	speed: f32
 	fire_rate: f32
+	dxn: k2.Vec2
 
 	switch type {
 		case .FOLLOWER:
 			size = follower_size
-			rand_pos = {
-				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
-				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
-			}
 			speed = 100
 		case .CROSS:
 			size = cross_size
-			rand_pos = {
-				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
-				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
-			}
 			fire_rate = 2
+		case .GRAPE:
+			size = grape_size
+			speed = 100
+			fire_rate = 3
+
+			is_hor: bool = rand.float32() > 0.5
+			dxn = {
+				is_hor ? (rand.float32() > 0.5 ? -1 : 1) : 0,
+				!is_hor ? (rand.float32() > 0.5 ? -1 : 1) : 0
+			}
+	}
+
+	rand_pos: k2.Vec2 = {
+		rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
+		rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
 	}
 
 	enemy: Enemy = {
@@ -512,6 +587,8 @@ enemy_spawn_random :: proc() {
 		center = size*0.5,
 		type = type,
 		speed = speed,
+
+		dxn = dxn,
 
 		fire_rate = fire_rate,
 
@@ -529,10 +606,12 @@ load_assets :: proc() {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
 		p_gun = k2.load_texture_from_bytes(#load("res/sprites/p_gun.png")),
 		p_bullets = k2.load_texture_from_bytes(#load("res/sprites/p_bullets.png")),
-		e_bullet = k2.load_texture_from_bytes(#load("res/sprites/e_bullet.png")),
+		c_bullet = k2.load_texture_from_bytes(#load("res/sprites/c_bullet.png")),
 		border = k2.load_texture_from_bytes(#load("res/sprites/border.png")),
 		follower = k2.load_texture_from_bytes(#load("res/sprites/follower.png")),
 		cross = k2.load_texture_from_bytes(#load("res/sprites/cross.png")),
+		grape = k2.load_texture_from_bytes(#load("res/sprites/grape.png")),
+		g_bullet = k2.load_texture_from_bytes(#load("res/sprites/g_bullet.png")),
 	}
 }
 
@@ -540,10 +619,12 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.player)
 	k2.destroy_texture(state.textures.p_gun)
 	k2.destroy_texture(state.textures.p_bullets)
-	k2.destroy_texture(state.textures.e_bullet)
+	k2.destroy_texture(state.textures.c_bullet)
 	k2.destroy_texture(state.textures.border)
 	k2.destroy_texture(state.textures.follower)
 	k2.destroy_texture(state.textures.cross)
+	k2.destroy_texture(state.textures.grape)
+	k2.destroy_texture(state.textures.g_bullet)
 }
 
 main :: proc() {
