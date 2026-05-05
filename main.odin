@@ -58,7 +58,14 @@ Gun :: struct {
 
 Bullet :: struct {
 	using e: Entity,
-	idx: i32
+	idx: i32,
+
+	is_hit: bool,
+	remove: bool,
+
+	scale, max_scale: f32,
+	die_time, time: f32,
+	alpha: u8
 }
 
 // HELPER ========================c
@@ -186,7 +193,11 @@ player_update :: proc() {
 			size = f32(state.textures.p_bullets.width)/5,
 			dxn = mouse_dxn,
 			speed = 600,
-			idx = rand.int31() % 5
+			idx = rand.int31() % 5,
+			scale = 1,
+			max_scale = 3,
+			alpha = 255,
+			die_time = 0.3
 		}
 
 		append(&player.gun.bullets, bullet)
@@ -198,13 +209,30 @@ player_update :: proc() {
 	#reverse for &bullet, i in player.gun.bullets {
 		bullet.pos += bullet.dxn * bullet.speed * k2.get_frame_time()
 
-		// boundary
-		if bullet.pos.x < f32(MAP_MARGIN) ||
-			bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
-			bullet.pos.y < f32(MAP_MARGIN) ||
-			bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
-			unordered_remove(&player.gun.bullets, i)
+		// is hit
+		if bullet.is_hit {
+			bullet.dxn = 0
+			bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
+			bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
+
+			if bullet.time < bullet.die_time do bullet.time += k2.get_frame_time()
+			else {
+				bullet.is_hit = false
+				bullet.remove = true
+			}
 		}
+		else {
+			// boundary
+			if bullet.pos.x < f32(MAP_MARGIN) ||
+				bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
+				bullet.pos.y < f32(MAP_MARGIN) ||
+				bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
+				bullet.is_hit = true
+			}
+		}
+
+		// remove
+		if bullet.remove do unordered_remove(&player.gun.bullets, i)
 	}
 }
 
@@ -231,11 +259,12 @@ player_draw :: proc() {
 
 	// bullets
 	for bullet in player.gun.bullets {
-		k2.draw_texture_rect(
+		k2.draw_texture_fit(
 			state.textures.p_bullets,
 			{f32(bullet.idx)*bullet.size.x, 0, bullet.size.x, bullet.size.y},
-			bullet.pos,
-			bullet.size*0.5
+			{bullet.pos.x, bullet.pos.y, bullet.size.x*bullet.scale, bullet.size.y*bullet.scale},
+			bullet.size*bullet.scale*0.5,
+			0, {255, 255, 255, bullet.alpha}
 		)
 
 		if state.config.show_debug do k2.draw_circle_outline(bullet.pos, bullet.size.x*0.5, 2, k2.RED)
