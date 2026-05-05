@@ -78,6 +78,14 @@ check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
 		r1.y + r1.h > r2.y)
 }
 
+check_collision_circle_rec :: proc(center: k2.Vec2, radius: f32, rect: k2.Rect) -> bool {
+	closest: k2.Vec2
+	closest.x = clamp(center.x, rect.x, rect.x + rect.w)
+	closest.y = clamp(center.y, rect.y, rect.y + rect.h)
+
+	return linalg.distance(closest, center) < radius
+}
+
 // FUNCTIONS ========================c
 env_init :: proc() {
 	// random blocks
@@ -217,6 +225,17 @@ player_update :: proc() {
 	// bullets
 	#reverse for &bullet, i in player.gun.bullets {
 		bullet.pos += bullet.dxn * bullet.speed * k2.get_frame_time()
+
+		// blocks
+		for block in state.env.random_blocks {
+			if check_collision_circle_rec(
+				bullet.pos, bullet.size.x,
+				{block.pos.x, block.pos.y, block.size.x, block.size.y}
+			) {
+				bullet.is_hit = true
+				break
+			}
+		}
 
 		// is hit
 		if bullet.is_hit {
