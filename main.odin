@@ -29,7 +29,8 @@ state: struct {
 
 	textures: struct {
 		player,
-		p_gun: k2.Texture
+		p_gun,
+		p_bullets: k2.Texture,
 	}
 }
 
@@ -57,6 +58,7 @@ Gun :: struct {
 
 Bullet :: struct {
 	using e: Entity,
+	idx: i32
 }
 
 // HELPER ========================c
@@ -181,9 +183,10 @@ player_update :: proc() {
 
 		bullet: Bullet = {
 			pos = firing_point,
-			size = 20,
+			size = f32(state.textures.p_bullets.width)/5,
 			dxn = mouse_dxn,
-			speed = 600
+			speed = 600,
+			idx = rand.int31() % 5
 		}
 
 		append(&player.gun.bullets, bullet)
@@ -221,14 +224,21 @@ player_draw :: proc() {
 	mouse_dxn := linalg.normalize(k2.get_mouse_position() - (player.pos+player.gun.pos))
 
 	if state.config.show_debug {
-		k2.draw_rect_outline({player.pos.x, player.pos.y, player.size.x, player.size.y}, 2, k2.LIGHT_GRAY)
-		k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.BLUE, player.gun.center, player.gun.angle)
+		k2.draw_rect_outline({player.pos.x, player.pos.y, player.size.x, player.size.y}, 2, k2.RED)
+		k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.RED, player.gun.center, player.gun.angle)
 		k2.draw_circle((player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x, 5, k2.BLACK)
 	}
 
 	// bullets
 	for bullet in player.gun.bullets {
-		k2.draw_circle(bullet.pos, bullet.size.x, k2.BLACK)
+		k2.draw_texture_rect(
+			state.textures.p_bullets,
+			{f32(bullet.idx)*bullet.size.x, 0, bullet.size.x, bullet.size.y},
+			bullet.pos,
+			bullet.size*0.5
+		)
+
+		if state.config.show_debug do k2.draw_circle_outline(bullet.pos, bullet.size.x*0.5, 2, k2.RED)
 	}
 }
 
@@ -236,12 +246,14 @@ load_assets :: proc() {
 	state.textures = {
 		player = k2.load_texture_from_file("res/sprites/player.png"),
 		p_gun = k2.load_texture_from_file("res/sprites/p_gun.png"),
+		p_bullets = k2.load_texture_from_file("res/sprites/p_bullets.png"),
 	}
 }
 
 unload_assets :: proc() {
 	k2.destroy_texture(state.textures.player)
 	k2.destroy_texture(state.textures.p_gun)
+	k2.destroy_texture(state.textures.p_bullets)
 }
 
 main :: proc() {
