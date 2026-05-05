@@ -15,12 +15,21 @@ MAP_MARGIN :: 100
 
 // GLOBALS ========================c
 state: struct {
+	config: struct {
+		show_debug: bool
+	},
+
 	entity: struct {
 		player: Player
 	},
 
 	env: struct {
 		random_blocks: [3]Entity
+	},
+
+	textures: struct {
+		player,
+		p_gun: k2.Texture
 	}
 }
 
@@ -89,14 +98,14 @@ env_draw :: proc() {
 player_init :: proc() {
 	state.entity.player = {
 		pos = {300, 300},
-		size = 36,
+		size = {f32(state.textures.player.width), f32(state.textures.player.height)},
 		speed = 300,
 
 		gun = {
-			pos = 36*0.5,
-			original_pos = 36*0.5,
-			size = {40, 18},
-			center = {0, 18*0.5},
+			pos = ({f32(state.textures.player.width), f32(state.textures.player.height)}*0.5),
+			original_pos = ({f32(state.textures.player.width), f32(state.textures.player.height)}*0.5),
+			size = {f32(state.textures.p_gun.width), f32(state.textures.p_gun.height)},
+			center = {0, f32(state.textures.p_gun.height)*0.5},
 			fire_rate = 10
 		}
 	}
@@ -199,18 +208,40 @@ player_update :: proc() {
 player_draw :: proc() {
 	player := state.entity.player
 
-	k2.draw_rect_vec(player.pos, player.size, k2.DARK_GREEN)
+	k2.draw_texture(state.textures.player, player.pos)
 
 	// gun
-	k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.BLUE, player.gun.center, player.gun.angle)
+	k2.draw_texture(
+		state.textures.p_gun,
+		player.pos+player.gun.pos,
+		player.gun.center,
+		player.gun.angle
+	)
 
 	mouse_dxn := linalg.normalize(k2.get_mouse_position() - (player.pos+player.gun.pos))
-	k2.draw_circle((player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x, 5, k2.BLACK)
+
+	if state.config.show_debug {
+		k2.draw_rect_outline({player.pos.x, player.pos.y, player.size.x, player.size.y}, 2, k2.LIGHT_GRAY)
+		k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.BLUE, player.gun.center, player.gun.angle)
+		k2.draw_circle((player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x, 5, k2.BLACK)
+	}
 
 	// bullets
 	for bullet in player.gun.bullets {
 		k2.draw_circle(bullet.pos, bullet.size.x, k2.BLACK)
 	}
+}
+
+load_assets :: proc() {
+	state.textures = {
+		player = k2.load_texture_from_file("res/sprites/player.png"),
+		p_gun = k2.load_texture_from_file("res/sprites/p_gun.png"),
+	}
+}
+
+unload_assets :: proc() {
+	k2.destroy_texture(state.textures.player)
+	k2.destroy_texture(state.textures.p_gun)
 }
 
 main :: proc() {
@@ -223,6 +254,8 @@ main :: proc() {
 init :: proc() {
 	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Bullet Hell", options = {window_mode = .Windowed_Resizable})
 
+	load_assets()
+
 	env_init()
 	player_init()
 }
@@ -233,6 +266,7 @@ step :: proc() -> bool {
 		return false
 	}
 
+	if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
 	player_update()
 
 	// DRAW
@@ -247,7 +281,9 @@ step :: proc() -> bool {
 }
 
 shutdown :: proc() {
-	k2.shutdown()
-
 	delete(state.entity.player.gun.bullets)
+
+	unload_assets()
+
+	k2.shutdown()
 }
