@@ -132,7 +132,7 @@ player_init :: proc() {
 			original_pos = ({f32(state.textures.player.width), f32(state.textures.player.height)}*0.5),
 			size = {f32(state.textures.p_gun.width), f32(state.textures.p_gun.height)},
 			center = {0, f32(state.textures.p_gun.height)*0.5},
-			fire_rate = 10
+			fire_rate = 50
 		}
 	}
 }
@@ -209,7 +209,7 @@ player_update :: proc() {
 			pos = firing_point,
 			size = f32(state.textures.p_bullets.width)/5,
 			dxn = mouse_dxn,
-			speed = 600,
+			speed = 1000,
 			idx = rand.int31() % 5,
 			scale = 1,
 			max_scale = 3,
