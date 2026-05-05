@@ -473,7 +473,7 @@ enemies_update :: proc() {
 									f32(state.textures.g_bullet.height)
 								}*0.5),
 
-								speed = 100,
+								speed = 300,
 
 								scale = 1,
 								max_scale = 3,
