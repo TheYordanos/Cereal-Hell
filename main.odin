@@ -13,6 +13,8 @@ SCREEN_HEIGHT :: 720
 MAP_SIZE :: 1440
 MAP_MARGIN :: 100
 
+MIN_ENEMY_COUNT :: 40
+
 // GLOBALS ========================c
 state: struct {
 	config: struct {
@@ -25,14 +27,17 @@ state: struct {
 	},
 
 	env: struct {
-		random_blocks: [20]Entity
+		random_blocks: [20]Entity,
+		enemies: [dynamic]Enemy
 	},
 
 	textures: struct {
 		player,
 		p_gun,
 		p_bullets,
-		border: k2.Texture,
+		border,
+
+		follower: k2.Texture,
 	}
 }
 
@@ -40,6 +45,7 @@ state: struct {
 Entity :: struct {
 	pos, size, dxn: k2.Vec2,
 	speed: f32,
+	center: k2.Vec2,
 }
 
 Player :: struct {
@@ -52,8 +58,6 @@ Gun :: struct {
 	original_pos: k2.Vec2,
 	angle: f32,
 	time, fire_rate: f32,
-
-	center: k2.Vec2,
 
 	bullets: [dynamic]Bullet,
 }
@@ -69,6 +73,13 @@ Bullet :: struct {
 	die_time, time: f32,
 	alpha: u8
 }
+
+Enemy :: struct {
+	using e: Entity,
+	type: Enemy_Type
+}
+
+Enemy_Type :: enum byte { FOLLOWER }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -316,12 +327,92 @@ camera_update :: proc() {
 	camera.target.y = clamp(camera.target.y, f32(SCREEN_HEIGHT)*0.5, f32(MAP_SIZE)-f32(SCREEN_HEIGHT)*0.5)
 }
 
+enemies_init :: proc() {
+	for _ in 0..<MIN_ENEMY_COUNT do enemy_spawn_random()
+}
+
+enemies_update :: proc() {
+	player := state.entity.player
+
+	// spawn
+	if len(state.env.enemies) < MIN_ENEMY_COUNT do enemy_spawn_random()
+
+	// update
+	#reverse for &enemy, i in state.env.enemies {
+		switch enemy.type {
+			case .FOLLOWER:
+			{
+				enemy.dxn = linalg.normalize(player.pos+player.size*0.5 - enemy.pos)
+				enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
+			}
+		}
+
+		for &bullet in player.gun.bullets {
+			if !bullet.is_hit && check_collision_circle_rec(
+				bullet.pos, bullet.size.x,
+				{
+					enemy.pos.x-enemy.size.x, enemy.pos.y-enemy.size.y,
+					enemy.size.x, enemy.size.y
+				}
+			) {
+				bullet.is_hit = true
+				unordered_remove(&state.env.enemies, i)
+				break
+			}
+		}
+	}
+}
+
+enemies_draw :: proc() {
+	for enemy in state.env.enemies {
+		switch enemy.type {
+			case .FOLLOWER:
+			{
+				k2.draw_texture(
+					state.textures.follower,
+					enemy.pos, enemy.center,
+					math.atan2(enemy.dxn.y, enemy.dxn.x)
+				)
+			}
+		}
+	}
+}
+
+enemy_spawn_random :: proc() {
+	type := Enemy_Type(rand.int31() % len(Enemy_Type))
+
+	follower_size: k2.Vec2 = {f32(state.textures.follower.width), f32(state.textures.follower.height)}
+
+	size: k2.Vec2
+	speed: f32
+
+	switch type {
+		case .FOLLOWER:
+			size = follower_size
+			speed = 100
+	}
+
+	enemy: Enemy = {
+		pos = {
+			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
+			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
+		},
+		size = size,
+		center = size*0.5,
+		type = type,
+		speed = speed
+	}
+
+	append(&state.env.enemies, enemy)
+}
+
 load_assets :: proc() {
 	state.textures = {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
 		p_gun = k2.load_texture_from_bytes(#load("res/sprites/p_gun.png")),
 		p_bullets = k2.load_texture_from_bytes(#load("res/sprites/p_bullets.png")),
 		border = k2.load_texture_from_bytes(#load("res/sprites/border.png")),
+		follower = k2.load_texture_from_bytes(#load("res/sprites/follower.png")),
 	}
 }
 
@@ -330,6 +421,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.p_gun)
 	k2.destroy_texture(state.textures.p_bullets)
 	k2.destroy_texture(state.textures.border)
+	k2.destroy_texture(state.textures.follower)
 }
 
 main :: proc() {
@@ -347,6 +439,7 @@ init :: proc() {
 	camera_init()
 	env_init()
 	player_init()
+	enemies_init()
 }
 
 step :: proc() -> bool {
@@ -355,15 +448,17 @@ step :: proc() -> bool {
 		return false
 	}
 
-	camera_update()
 	if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
 	player_update()
+	camera_update()
+	enemies_update()
 
 	// DRAW
 	k2.set_camera(state.entity.camera)
 	k2.clear(k2.WHITE)
 
 	env_draw()
+	enemies_draw()
 	player_draw()
 
 	k2.set_camera(nil)
@@ -375,6 +470,7 @@ step :: proc() -> bool {
 
 shutdown :: proc() {
 	delete(state.entity.player.gun.bullets)
+	delete(state.env.enemies)
 
 	unload_assets()
 
