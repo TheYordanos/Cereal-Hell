@@ -30,7 +30,9 @@ state: struct {
 	env: struct {
 		random_blocks: [20]Entity,
 		enemies: [dynamic]Enemy,
-		bullets: [dynamic]Bullet
+		bullets: [dynamic]Bullet,
+
+		damage_overlay: Entity
 	},
 
 	textures: struct {
@@ -64,12 +66,15 @@ Entity :: struct {
 
 	scale, max_scale: f32,
 	die_time, time: f32,
-	alpha: u8
+	alpha: u8,
+	clr: k2.Color
 }
 
 Player :: struct {
 	using e: Entity,
-	gun: Gun
+	gun: Gun,
+
+	max_health, current_health: f32,
 }
 
 Gun :: struct {
@@ -83,6 +88,7 @@ Gun :: struct {
 Bullet :: struct {
 	using e: Entity,
 	idx: i32,
+	damage: f32,
 	type: Bullet_Type
 }
 
@@ -91,6 +97,7 @@ Enemy :: struct {
 	type: Enemy_Type,
 
 	fire_rate: f32,
+	damage: f32,
 
 	score: i32,
 	idx: i32
@@ -112,7 +119,7 @@ Score :: struct {
 
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
-Bullet_Type :: enum byte { STRAWBERRY, BLUEBERRY }
+Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -143,10 +150,18 @@ env_init :: proc() {
 			size = block_size
 		}
 	}
+
+	// damage_overlay
+	state.env.damage_overlay = {
+		size = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
+		clr = { 239, 53, 53, 0 }
+	}
 }
 
 env_update :: proc() {
 	bullets_update(&state.env.bullets)
+
+	state.env.damage_overlay.clr.a = u8(math.lerp(f32(state.env.damage_overlay.clr.a), 0, 10 * k2.get_frame_time()))
 }
 
 env_draw :: proc() {
@@ -173,7 +188,7 @@ env_draw :: proc() {
 	for bullet in state.env.bullets {
 		texture: k2.Texture
 
-		switch bullet.type {
+		#partial switch bullet.type {
 			case .STRAWBERRY:
 				texture = state.textures.s_bullet
 			case .BLUEBERRY:
@@ -197,9 +212,10 @@ player_init :: proc() {
 		size = {f32(state.textures.player.width), f32(state.textures.player.height)},
 		speed = 300,
 
+		max_health = 10000,
+		current_health = 10000,
+
 		gun = {
-			pos = ({f32(state.textures.player.width), f32(state.textures.player.height)}*0.5),
-			original_pos = ({f32(state.textures.player.width), f32(state.textures.player.height)}*0.5),
 			size = {f32(state.textures.p_gun.width), f32(state.textures.p_gun.height)},
 			center = {0, f32(state.textures.p_gun.height)*0.5},
 			fire_rate = 50
@@ -207,8 +223,21 @@ player_init :: proc() {
 	}
 }
 
+player_damage :: proc(amount: f32) {
+	player := &state.entity.player
+
+	player.current_health -= amount
+	player.scale = 0
+
+	camera_shake(5, 0.2)
+	state.env.damage_overlay.clr.a = 120
+}
+
 player_update :: proc() {
 	player := &state.entity.player
+
+	// effects
+	player.scale = math.lerp(player.scale, 1, 10 * k2.get_frame_time())
 
 	player.dxn = 0
 	if k2.key_is_held(.A) || k2.key_is_held(.Left) 	do player.dxn.x -= 1
@@ -229,8 +258,8 @@ player_update :: proc() {
 	collide(false, player.dxn.y)
 
 	// border
-	player.pos.x = clamp(player.pos.x, f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-player.size.x)
-	player.pos.y = clamp(player.pos.y, f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-player.size.y)
+	player.pos.x = clamp(player.pos.x, f32(MAP_MARGIN)+player.size.x*0.5, f32(MAP_SIZE-MAP_MARGIN)-player.size.x*0.5)
+	player.pos.y = clamp(player.pos.y, f32(MAP_MARGIN)+player.size.y*0.5, f32(MAP_SIZE-MAP_MARGIN)-player.size.y*0.5)
 
 	collide :: proc(is_hor: bool, dxn: f32) {
 		player := &state.entity.player
@@ -241,7 +270,10 @@ player_update :: proc() {
 		// random_blocks
 		for block in state.env.random_blocks {
 			if check_collision_recs(
-				{player.pos.x, player.pos.y, player.size.x, player.size.y},
+				{
+					player.pos.x-player.size.x*0.5, player.pos.y-player.size.y*0.5,
+					player.size.x, player.size.y
+				},
 				{block.pos.x, block.pos.y, block.size.x, block.size.y}
 			) {
 				has_collided = true
@@ -253,11 +285,11 @@ player_update :: proc() {
 		if !has_collided do return
 
 		if is_hor {
-			if dxn > 0      do player.pos.x = collision_block.pos.x - player.size.x
-			else if dxn < 0 do player.pos.x = collision_block.pos.x + collision_block.size.x
+			if dxn > 0      do player.pos.x = collision_block.pos.x - player.size.x*0.5
+			else if dxn < 0 do player.pos.x = collision_block.pos.x + collision_block.size.x + player.size.x*0.5
 		} else {
-			if dxn > 0      do player.pos.y = collision_block.pos.y - player.size.y
-			else if dxn < 0 do player.pos.y = collision_block.pos.y + collision_block.size.y
+			if dxn > 0      do player.pos.y = collision_block.pos.y - player.size.y*0.5
+			else if dxn < 0 do player.pos.y = collision_block.pos.y + collision_block.size.y + player.size.y*0.5
 		}
 	}
 
@@ -283,7 +315,8 @@ player_update :: proc() {
 			scale = 1,
 			max_scale = 3,
 			alpha = 255,
-			die_time = 0.3
+			die_time = 0.3,
+			type = .PLAYER
 		}
 
 		append(&player.gun.bullets, bullet)
@@ -298,7 +331,13 @@ player_update :: proc() {
 player_draw :: proc() {
 	player := state.entity.player
 
-	k2.draw_texture(state.textures.player, player.pos)
+	// k2.draw_texture(state.textures.player, player.pos)
+	k2.draw_texture_fit(
+		state.textures.player,
+		{0, 0, player.size.x, player.size.y},
+		{player.pos.x, player.pos.y, player.size.x*player.scale, player.size.y*player.scale},
+		player.size*0.5*player.scale
+	)
 
 	// gun
 	k2.draw_texture(
@@ -307,14 +346,6 @@ player_draw :: proc() {
 		player.gun.center,
 		player.gun.angle
 	)
-
-	if state.config.show_debug {
-		mouse_dxn := linalg.normalize(k2.screen_to_world(k2.get_mouse_position(), state.entity.cam.main) - (player.pos+player.gun.pos))
-
-		k2.draw_rect_outline({player.pos.x, player.pos.y, player.size.x, player.size.y}, 2, k2.RED)
-		k2.draw_rect_vec(player.pos+player.gun.pos, player.gun.size, k2.RED, player.gun.center, player.gun.angle)
-		k2.draw_circle((player.pos+player.gun.pos) + mouse_dxn*player.gun.size.x, 5, k2.BLACK)
-	}
 
 	// bullets
 	for bullet in player.gun.bullets {
@@ -325,12 +356,25 @@ player_draw :: proc() {
 			bullet.size*bullet.scale*0.5,
 			0, {255, 255, 255, bullet.alpha}
 		)
-
-		if state.config.show_debug do k2.draw_circle_outline(bullet.pos, bullet.size.x*0.5, 2, k2.RED)
 	}
 }
 
+player_health_draw :: proc() {
+	player := state.entity.player
+
+	height: f32 = 10
+	margin: k2.Vec2 = 5
+
+	k2.draw_rect_vec(
+		{margin.x, f32(SCREEN_HEIGHT)-height-margin.y},
+		{(f32(SCREEN_WIDTH)-margin.x*2)*(player.current_health/player.max_health), height},
+		k2.BLUE
+	)
+}
+
 bullets_update :: proc(bullets: ^[dynamic]Bullet) {
+	player := state.entity.player
+
 	#reverse for &bullet, i in bullets {
 		bullet.pos += bullet.dxn * bullet.speed * k2.get_frame_time()
 
@@ -366,6 +410,18 @@ bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 
 				bullet.scale = 1
 				bullet.is_hit = true
+			}
+
+			// player
+			if bullet.type != .PLAYER && check_collision_circle_rec(
+				bullet.pos, bullet.size.x*0.5,
+				{
+					player.pos.x-player.size.x*0.5, player.pos.y-player.size.y*0.5,
+					player.size.x, player.size.y
+				}
+			) {
+				bullet.is_hit = true
+				player_damage(bullet.damage)
 			}
 		}
 
@@ -429,8 +485,16 @@ enemies_update :: proc() {
 			case .FOLLOWER:
 			{
 				if !enemy.is_hit {
-					enemy.dxn = linalg.normalize(player.pos+player.size*0.5 - enemy.pos)
+					enemy.dxn = linalg.normalize(player.pos - enemy.pos)
 					enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
+
+					if check_collision_recs(
+						{enemy.pos.x, enemy.pos.y, enemy.size.x, enemy.size.y},
+						{player.pos.x, player.pos.y, player.size.x, player.size.y}
+					) {
+						player_damage(enemy.damage)
+						enemy.is_hit = true
+					}
 				}
 			}
 			case .STRAWBERRY:
@@ -461,6 +525,8 @@ enemies_update :: proc() {
 								}*0.5),
 
 								speed = 300,
+
+								damage = enemy.damage,
 
 								scale = 1,
 								max_scale = 3,
@@ -519,6 +585,8 @@ enemies_update :: proc() {
 								}*0.5),
 
 								speed = 300,
+
+								damage = enemy.damage,
 
 								scale = 1,
 								max_scale = 3,
@@ -605,6 +673,7 @@ enemy_spawn_random :: proc() {
 	size: k2.Vec2
 	speed: f32
 	fire_rate: f32
+	damage: f32
 	dxn: k2.Vec2
 	score: i32
 	idx: i32
@@ -615,17 +684,20 @@ enemy_spawn_random :: proc() {
 			size = follower_size
 			speed = 100
 			score = 200
+			damage = 100
 			idx = rand.int31() % 5
 			multiple_sprite_divider = 5
 		case .STRAWBERRY:
 			size = strawberry_size
 			fire_rate = 2
 			score = 400
+			damage = 30
 		case .BLUEBERRY:
 			size = blueberry_size
 			speed = 100
 			fire_rate = 3
 			score = 600
+			damage = 20
 
 			is_hor: bool = rand.float32() > 0.5
 			dxn = {
@@ -651,6 +723,7 @@ enemy_spawn_random :: proc() {
 		dxn = dxn,
 
 		fire_rate = fire_rate,
+		damage = damage,
 
 		scale = 1,
 		max_scale = 3,
@@ -685,6 +758,14 @@ score_draw :: proc() {
 	font_size = 56*score.scale
 	size = k2.measure_text(text, font_size, state.main_font)
 	k2.draw_text(text, pos, font_size, k2.BLUE, state.main_font, size*0.5, linalg.to_radians(score.angle))
+}
+
+ui_draw :: proc() {
+	score_draw()
+
+	player_health_draw()
+
+	k2.draw_rect_vec(state.env.damage_overlay.pos, state.env.damage_overlay.size, state.env.damage_overlay.clr)
 }
 
 load_assets :: proc() {
@@ -759,7 +840,7 @@ step :: proc() -> bool {
 
 	k2.set_camera(nil)
 
-	score_draw()
+	ui_draw()
 
 	k2.present()
 
