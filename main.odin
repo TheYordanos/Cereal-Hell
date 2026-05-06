@@ -90,7 +90,8 @@ Enemy :: struct {
 
 	fire_rate: f32,
 
-	score: i32
+	score: i32,
+	idx: i32
 }
 
 Cam :: struct {
@@ -568,9 +569,12 @@ enemies_draw :: proc() {
 	for enemy in state.env.enemies {
 		texture: k2.Texture
 
+		multiple_sprite_divider: f32 = 1
+
 		switch enemy.type {
 			case .FOLLOWER:
 				texture = state.textures.follower
+				multiple_sprite_divider = 5
 			case .CROSS:
 				texture = state.textures.cross
 			case .GRAPE:
@@ -579,8 +583,8 @@ enemies_draw :: proc() {
 
 		k2.draw_texture_fit(
 			texture,
-			{0, 0, enemy.size.x, enemy.size.y},
-			{enemy.pos.x, enemy.pos.y, enemy.size.x*enemy.scale, enemy.size.y*enemy.scale},
+			{f32(enemy.idx)*enemy.size.x/multiple_sprite_divider, 0, enemy.size.x/multiple_sprite_divider, enemy.size.y},
+			{enemy.pos.x, enemy.pos.y, enemy.size.x/multiple_sprite_divider*enemy.scale, enemy.size.y*enemy.scale},
 			enemy.center*enemy.scale,
 			math.atan2(enemy.dxn.y, enemy.dxn.x),
 			{255, 255, 255, enemy.alpha}
@@ -600,12 +604,16 @@ enemy_spawn_random :: proc() {
 	fire_rate: f32
 	dxn: k2.Vec2
 	score: i32
+	idx: i32
+	multiple_sprite_divider: f32 = 1
 
 	switch type {
 		case .FOLLOWER:
 			size = follower_size
 			speed = 100
 			score = 200
+			idx = rand.int31() % 5
+			multiple_sprite_divider = 5
 		case .CROSS:
 			size = cross_size
 			fire_rate = 2
@@ -631,10 +639,11 @@ enemy_spawn_random :: proc() {
 	enemy: Enemy = {
 		pos = rand_pos,
 		size = size,
-		center = size*0.5,
+		center = ({size.x/multiple_sprite_divider, size.y}*0.5),
 		type = type,
 		speed = speed,
 		score = score,
+		idx = idx,
 
 		dxn = dxn,
 
