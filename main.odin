@@ -38,8 +38,8 @@ state: struct {
 		p_gun,
 		p_bullets,
 		c_bullet,
-		grape,
-		g_bullet,
+		blueberry,
+		b_bullet,
 		border,
 
 		follower,
@@ -109,8 +109,8 @@ Score :: struct {
 }
 
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
-Enemy_Type :: enum byte { FOLLOWER, CROSS, GRAPE }
-Bullet_Type :: enum byte { CROSS, GRAPE }
+Enemy_Type :: enum byte { FOLLOWER, CROSS, BLUEBERRY }
+Bullet_Type :: enum byte { CROSS, BLUEBERRY }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -173,8 +173,8 @@ env_draw :: proc() {
 		switch bullet.type {
 			case .CROSS:
 				texture = state.textures.c_bullet
-			case .GRAPE:
-				texture = state.textures.g_bullet
+			case .BLUEBERRY:
+				texture = state.textures.b_bullet
 		}
 
 		k2.draw_texture_fit(
@@ -472,7 +472,7 @@ enemies_update :: proc() {
 					}
 				}
 			}
-			case .GRAPE:
+			case .BLUEBERRY:
 			{
 				if !enemy.is_hit {
 					enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
@@ -509,10 +509,10 @@ enemies_update :: proc() {
 							bullet: Bullet = {
 								pos = enemy.pos,
 								dxn = point.dxn,
-								size = f32(state.textures.g_bullet.width),
+								size = f32(state.textures.b_bullet.width),
 								center = ({
-									f32(state.textures.g_bullet.width),
-									f32(state.textures.g_bullet.height)
+									f32(state.textures.b_bullet.width),
+									f32(state.textures.b_bullet.height)
 								}*0.5),
 
 								speed = 300,
@@ -522,7 +522,7 @@ enemies_update :: proc() {
 								alpha = 255,
 								die_time = 0.3,
 
-								type = .GRAPE
+								type = .BLUEBERRY
 							}
 
 							append(&state.env.bullets, bullet)
@@ -577,8 +577,8 @@ enemies_draw :: proc() {
 				multiple_sprite_divider = 5
 			case .CROSS:
 				texture = state.textures.cross
-			case .GRAPE:
-				texture = state.textures.grape
+			case .BLUEBERRY:
+				texture = state.textures.blueberry
 		}
 
 		k2.draw_texture_fit(
@@ -597,7 +597,7 @@ enemy_spawn_random :: proc() {
 
 	follower_size: k2.Vec2 = {f32(state.textures.follower.width), f32(state.textures.follower.height)}
 	cross_size: k2.Vec2 = {f32(state.textures.cross.width), f32(state.textures.cross.height)}
-	grape_size: k2.Vec2 = {f32(state.textures.grape.width), f32(state.textures.grape.height)}
+	blueberry_size: k2.Vec2 = {f32(state.textures.blueberry.width), f32(state.textures.blueberry.height)}
 
 	size: k2.Vec2
 	speed: f32
@@ -618,8 +618,8 @@ enemy_spawn_random :: proc() {
 			size = cross_size
 			fire_rate = 2
 			score = 400
-		case .GRAPE:
-			size = grape_size
+		case .BLUEBERRY:
+			size = blueberry_size
 			speed = 100
 			fire_rate = 3
 			score = 600
@@ -693,8 +693,8 @@ load_assets :: proc() {
 		border = k2.load_texture_from_bytes(#load("res/sprites/border.png")),
 		follower = k2.load_texture_from_bytes(#load("res/sprites/follower.png")),
 		cross = k2.load_texture_from_bytes(#load("res/sprites/cross.png")),
-		grape = k2.load_texture_from_bytes(#load("res/sprites/grape.png")),
-		g_bullet = k2.load_texture_from_bytes(#load("res/sprites/g_bullet.png")),
+		blueberry = k2.load_texture_from_bytes(#load("res/sprites/blueberry.png")),
+		b_bullet = k2.load_texture_from_bytes(#load("res/sprites/b_bullet.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -708,8 +708,8 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.border)
 	k2.destroy_texture(state.textures.follower)
 	k2.destroy_texture(state.textures.cross)
-	k2.destroy_texture(state.textures.grape)
-	k2.destroy_texture(state.textures.g_bullet)
+	k2.destroy_texture(state.textures.blueberry)
+	k2.destroy_texture(state.textures.b_bullet)
 
 	k2.destroy_font(state.main_font)
 }
