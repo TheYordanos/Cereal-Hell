@@ -37,13 +37,13 @@ state: struct {
 		player,
 		p_gun,
 		p_bullets,
-		c_bullet,
+		s_bullet,
 		blueberry,
 		b_bullet,
 		border,
 
 		follower,
-		cross: k2.Texture,
+		strawberry: k2.Texture,
 	},
 
 	main_font: k2.Font,
@@ -109,8 +109,8 @@ Score :: struct {
 }
 
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
-Enemy_Type :: enum byte { FOLLOWER, CROSS, BLUEBERRY }
-Bullet_Type :: enum byte { CROSS, BLUEBERRY }
+Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
+Bullet_Type :: enum byte { STRAWBERRY, BLUEBERRY }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -171,8 +171,8 @@ env_draw :: proc() {
 		texture: k2.Texture
 
 		switch bullet.type {
-			case .CROSS:
-				texture = state.textures.c_bullet
+			case .STRAWBERRY:
+				texture = state.textures.s_bullet
 			case .BLUEBERRY:
 				texture = state.textures.b_bullet
 		}
@@ -430,7 +430,7 @@ enemies_update :: proc() {
 					enemy.pos += enemy.dxn * enemy.speed * k2.get_frame_time()
 				}
 			}
-			case .CROSS:
+			case .STRAWBERRY:
 			{
 				if !enemy.is_hit {
 					enemy.scale = math.lerp(enemy.scale, 1, 10 * k2.get_frame_time())
@@ -451,10 +451,10 @@ enemies_update :: proc() {
 							bullet: Bullet = {
 								pos = point.pos,
 								dxn = point.dxn,
-								size = f32(state.textures.c_bullet.width),
+								size = {f32(state.textures.s_bullet.width), f32(state.textures.s_bullet.height)},
 								center = ({
-									f32(state.textures.c_bullet.width),
-									f32(state.textures.c_bullet.height)
+									f32(state.textures.s_bullet.width),
+									f32(state.textures.s_bullet.height)
 								}*0.5),
 
 								speed = 300,
@@ -464,7 +464,7 @@ enemies_update :: proc() {
 								alpha = 255,
 								die_time = 0.3,
 
-								type = .CROSS
+								type = .STRAWBERRY
 							}
 
 							append(&state.env.bullets, bullet)
@@ -575,8 +575,8 @@ enemies_draw :: proc() {
 			case .FOLLOWER:
 				texture = state.textures.follower
 				multiple_sprite_divider = 5
-			case .CROSS:
-				texture = state.textures.cross
+			case .STRAWBERRY:
+				texture = state.textures.strawberry
 			case .BLUEBERRY:
 				texture = state.textures.blueberry
 		}
@@ -596,7 +596,7 @@ enemy_spawn_random :: proc() {
 	type := Enemy_Type(rand.int31() % len(Enemy_Type))
 
 	follower_size: k2.Vec2 = {f32(state.textures.follower.width), f32(state.textures.follower.height)}
-	cross_size: k2.Vec2 = {f32(state.textures.cross.width), f32(state.textures.cross.height)}
+	strawberry_size: k2.Vec2 = {f32(state.textures.strawberry.width), f32(state.textures.strawberry.height)}
 	blueberry_size: k2.Vec2 = {f32(state.textures.blueberry.width), f32(state.textures.blueberry.height)}
 
 	size: k2.Vec2
@@ -614,8 +614,8 @@ enemy_spawn_random :: proc() {
 			score = 200
 			idx = rand.int31() % 5
 			multiple_sprite_divider = 5
-		case .CROSS:
-			size = cross_size
+		case .STRAWBERRY:
+			size = strawberry_size
 			fire_rate = 2
 			score = 400
 		case .BLUEBERRY:
@@ -689,10 +689,10 @@ load_assets :: proc() {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
 		p_gun = k2.load_texture_from_bytes(#load("res/sprites/p_gun.png")),
 		p_bullets = k2.load_texture_from_bytes(#load("res/sprites/p_bullets.png")),
-		c_bullet = k2.load_texture_from_bytes(#load("res/sprites/c_bullet.png")),
+		s_bullet = k2.load_texture_from_bytes(#load("res/sprites/s_bullet.png")),
 		border = k2.load_texture_from_bytes(#load("res/sprites/border.png")),
 		follower = k2.load_texture_from_bytes(#load("res/sprites/follower.png")),
-		cross = k2.load_texture_from_bytes(#load("res/sprites/cross.png")),
+		strawberry = k2.load_texture_from_bytes(#load("res/sprites/strawberry.png")),
 		blueberry = k2.load_texture_from_bytes(#load("res/sprites/blueberry.png")),
 		b_bullet = k2.load_texture_from_bytes(#load("res/sprites/b_bullet.png")),
 	}
@@ -704,10 +704,10 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.player)
 	k2.destroy_texture(state.textures.p_gun)
 	k2.destroy_texture(state.textures.p_bullets)
-	k2.destroy_texture(state.textures.c_bullet)
+	k2.destroy_texture(state.textures.s_bullet)
 	k2.destroy_texture(state.textures.border)
 	k2.destroy_texture(state.textures.follower)
-	k2.destroy_texture(state.textures.cross)
+	k2.destroy_texture(state.textures.strawberry)
 	k2.destroy_texture(state.textures.blueberry)
 	k2.destroy_texture(state.textures.b_bullet)
 
