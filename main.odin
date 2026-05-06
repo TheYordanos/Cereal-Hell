@@ -38,11 +38,13 @@ state: struct {
 		p_gun,
 		p_bullets,
 		s_bullet,
-		blueberry,
 		b_bullet,
+
 		border,
+		random_block,
 
 		follower,
+		blueberry,
 		strawberry: k2.Texture,
 	},
 
@@ -132,11 +134,11 @@ check_collision_circle_rec :: proc(center: k2.Vec2, radius: f32, rect: k2.Rect) 
 env_init :: proc() {
 	// random blocks
 	for &block in state.env.random_blocks {
-		block_size: f32 = 50
+		block_size: k2.Vec2 = {f32(state.textures.random_block.width), f32(state.textures.random_block.height)}
 		block = {
 			pos = {
-				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN-block_size)),
-				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN-block_size))
+				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN-block_size.x)),
+				rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN-block_size.y))
 			},
 			size = block_size
 		}
@@ -163,7 +165,8 @@ env_draw :: proc() {
 
 	// random blocks
 	for block in state.env.random_blocks {
-		k2.draw_rect_vec(block.pos, block.size, k2.LIGHT_GRAY)
+		// k2.draw_rect_vec(block.pos, block.size, k2.LIGHT_GRAY)
+		k2.draw_texture(state.textures.random_block, block.pos)
 	}
 
 	// bullets
@@ -695,6 +698,7 @@ load_assets :: proc() {
 		strawberry = k2.load_texture_from_bytes(#load("res/sprites/strawberry.png")),
 		blueberry = k2.load_texture_from_bytes(#load("res/sprites/blueberry.png")),
 		b_bullet = k2.load_texture_from_bytes(#load("res/sprites/b_bullet.png")),
+		random_block = k2.load_texture_from_bytes(#load("res/sprites/random_block.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -705,11 +709,12 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.p_gun)
 	k2.destroy_texture(state.textures.p_bullets)
 	k2.destroy_texture(state.textures.s_bullet)
+	k2.destroy_texture(state.textures.b_bullet)
 	k2.destroy_texture(state.textures.border)
 	k2.destroy_texture(state.textures.follower)
 	k2.destroy_texture(state.textures.strawberry)
 	k2.destroy_texture(state.textures.blueberry)
-	k2.destroy_texture(state.textures.b_bullet)
+	k2.destroy_texture(state.textures.random_block)
 
 	k2.destroy_font(state.main_font)
 }
