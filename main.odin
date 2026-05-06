@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import "core:math"
 import "core:math/rand"
 import "core:math/linalg"
@@ -43,7 +44,10 @@ state: struct {
 
 		follower,
 		cross: k2.Texture,
-	}
+	},
+
+	main_font: k2.Font,
+	score: Score
 }
 
 // STRUCTS ========================c
@@ -85,6 +89,8 @@ Enemy :: struct {
 	type: Enemy_Type,
 
 	fire_rate: f32,
+
+	score: i32
 }
 
 Cam :: struct {
@@ -94,6 +100,11 @@ Cam :: struct {
 	shake_duration: f32,
 
 	shake_amount: f32,
+}
+
+Score :: struct {
+	using e: Entity,
+	amount: i32
 }
 
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
@@ -322,7 +333,7 @@ bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 		// blocks
 		for block in state.env.random_blocks {
 			if check_collision_circle_rec(
-				bullet.pos, bullet.size.x,
+				bullet.pos, bullet.size.x*0.5,
 				{block.pos.x, block.pos.y, block.size.x, block.size.y}
 			) {
 				bullet.is_hit = true
@@ -543,6 +554,7 @@ enemies_update :: proc() {
 					bullet.is_hit = true
 					enemy.is_hit = true
 					camera_shake(5, 0.2)
+					score_add(enemy.score)
 					break
 				}
 			}
@@ -587,18 +599,22 @@ enemy_spawn_random :: proc() {
 	speed: f32
 	fire_rate: f32
 	dxn: k2.Vec2
+	score: i32
 
 	switch type {
 		case .FOLLOWER:
 			size = follower_size
 			speed = 100
+			score = 200
 		case .CROSS:
 			size = cross_size
 			fire_rate = 2
+			score = 400
 		case .GRAPE:
 			size = grape_size
 			speed = 100
 			fire_rate = 3
+			score = 600
 
 			is_hor: bool = rand.float32() > 0.5
 			dxn = {
@@ -618,6 +634,7 @@ enemy_spawn_random :: proc() {
 		center = size*0.5,
 		type = type,
 		speed = speed,
+		score = score,
 
 		dxn = dxn,
 
@@ -632,6 +649,32 @@ enemy_spawn_random :: proc() {
 	append(&state.env.enemies, enemy)
 }
 
+score_add :: proc(amount: i32) {
+	state.score.amount += amount
+	state.score.scale = 2
+	state.score.angle = rand.float32_range(-30, 30)
+}
+
+score_draw :: proc() {
+	score := &state.score
+
+	score.scale = math.lerp(score.scale, 1, 10 * k2.get_frame_time())
+	score.angle = math.lerp(score.angle, 0, 10 * k2.get_frame_time())
+
+	text := fmt.aprint(score.amount)
+	font_size: f32 = 48*score.scale
+	size := k2.measure_text(text, font_size, state.main_font)
+	pos: k2.Vec2 = {100, 50}
+
+	// bg
+	k2.draw_text(text, pos, font_size, k2.LIGHT_BLUE, state.main_font, size*0.5, linalg.to_radians(score.angle))
+
+	// main
+	font_size = 56*score.scale
+	size = k2.measure_text(text, font_size, state.main_font)
+	k2.draw_text(text, pos, font_size, k2.BLUE, state.main_font, size*0.5, linalg.to_radians(score.angle))
+}
+
 load_assets :: proc() {
 	state.textures = {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
@@ -644,6 +687,8 @@ load_assets :: proc() {
 		grape = k2.load_texture_from_bytes(#load("res/sprites/grape.png")),
 		g_bullet = k2.load_texture_from_bytes(#load("res/sprites/g_bullet.png")),
 	}
+
+	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
 }
 
 unload_assets :: proc() {
@@ -656,6 +701,8 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.cross)
 	k2.destroy_texture(state.textures.grape)
 	k2.destroy_texture(state.textures.g_bullet)
+
+	k2.destroy_font(state.main_font)
 }
 
 main :: proc() {
@@ -698,8 +745,11 @@ step :: proc() -> bool {
 
 	k2.set_camera(nil)
 
+	score_draw()
+
 	k2.present()
 
+	free_all(context.temp_allocator)
 	return true
 }
 
