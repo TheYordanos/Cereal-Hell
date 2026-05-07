@@ -79,6 +79,8 @@ Player :: struct {
 	gun: Gun,
 
 	max_health, current_health: f32,
+	health_scale: f32,
+	health_clr: k2.Color
 }
 
 Gun :: struct {
@@ -233,6 +235,10 @@ player_damage :: proc(amount: f32) {
 
 	player.current_health -= amount
 	player.scale = 0
+	player.health_scale = 2
+	player.health_clr = k2.RED
+
+	state.entity.cam.main.zoom = 1.1
 
 	camera_shake(5, 0.2)
 	state.env.damage_overlay.clr.a = 120
@@ -365,16 +371,24 @@ player_draw :: proc() {
 }
 
 player_health_draw :: proc() {
-	player := state.entity.player
+	player := &state.entity.player
+
+	player.health_clr.r = u8(math.lerp(f32(player.health_clr.r), f32(k2.BLUE.r), 5 * k2.get_frame_time()))
+	player.health_clr.g = u8(math.lerp(f32(player.health_clr.g), f32(k2.BLUE.g), 5 * k2.get_frame_time()))
+	player.health_clr.b = u8(math.lerp(f32(player.health_clr.b), f32(k2.BLUE.b), 5 * k2.get_frame_time()))
+	player.health_clr.a = u8(math.lerp(f32(player.health_clr.a), f32(k2.BLUE.a), 5 * k2.get_frame_time()))
+
+	player.health_scale = math.lerp(player.health_scale, 1, 10 * k2.get_frame_time())
 
 	height: f32 = 10
 	margin: k2.Vec2 = 5
+	health_ratio: f32 = player.current_health/player.max_health
 
-	k2.draw_rect_vec(
-		{margin.x, f32(SCREEN_HEIGHT)-height-margin.y},
-		{(f32(SCREEN_WIDTH)-margin.x*2)*(player.current_health/player.max_health), height},
-		k2.BLUE
-	)
+	size: k2.Vec2 = {(f32(SCREEN_WIDTH)-margin.x*2) * health_ratio, height}*player.health_scale
+	pos: k2.Vec2 = {f32(SCREEN_WIDTH)*0.5, f32(SCREEN_HEIGHT)-margin.y-height*0.5}
+	center := size*0.5
+
+	k2.draw_rect_vec(pos, size, player.health_clr, center)
 }
 
 bullets_update :: proc(bullets: ^[dynamic]Bullet) {
@@ -460,6 +474,8 @@ camera_update :: proc() {
 
 	camera.main.target.x = clamp(camera.main.target.x, f32(SCREEN_WIDTH)*0.5, f32(MAP_SIZE)-f32(SCREEN_WIDTH)*0.5)
 	camera.main.target.y = clamp(camera.main.target.y, f32(SCREEN_HEIGHT)*0.5, f32(MAP_SIZE)-f32(SCREEN_HEIGHT)*0.5)
+
+	camera.main.zoom = math.lerp(camera.main.zoom, 1, 10 * k2.get_frame_time())
 
 	if camera.shake_time > 0 {
 		shake: f32 = camera.shake_amount * (camera.shake_time / camera.shake_duration)
@@ -767,7 +783,6 @@ score_draw :: proc() {
 
 ui_draw :: proc() {
 	score_draw()
-
 	player_health_draw()
 
 	k2.draw_rect_vec(state.env.damage_overlay.pos, state.env.damage_overlay.size, state.env.damage_overlay.clr)
