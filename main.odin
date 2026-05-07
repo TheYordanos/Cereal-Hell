@@ -60,7 +60,8 @@ state: struct {
 		mm_spoon: struct { pos: k2.Vec2, enter_speed, move_speed: f32, has_entered: bool },
 		mm_bowl: struct { scale, scale_speed: f32 },
 		mm_outside: struct { scale, scale_speed: f32 },
-		mm_spill: struct { scale, scale_speed: f32 }
+		mm_spill: struct { scale, scale_speed: f32 },
+		instruction: struct { rot: f32 }
 	},
 
 	main_font: k2.Font,
@@ -808,7 +809,7 @@ main_menu_init :: proc() {
 		},
 		mm_bowl = { scale_speed = 5 },
 		mm_outside = { scale_speed = 1 },
-		mm_spill = { scale_speed = 2 }
+		mm_spill = { scale_speed = 2 },
 	}
 }
 
@@ -845,6 +846,21 @@ main_menu_draw :: proc() {
 		}
 
 		k2.draw_texture(state.textures.mm_spoon, {mm_spoon.pos.x+amp*2, mm_spoon.pos.y})
+	}
+
+	// instruction
+	{
+		inst := &state.main_menu.instruction
+
+		inst.rot = math.sin(f32(k2.get_time()) * 2) * 10
+
+		text: string = "Press <Space> to Play"
+		font_size: f32 = 46
+
+		pos: k2.Vec2 = {f32(SCREEN_WIDTH)*0.5, 50}
+		center := k2.measure_text(text, font_size, state.main_font)*0.5
+
+		k2.draw_text(text, pos, font_size, k2.WHITE, state.main_font, center, linalg.to_radians(inst.rot))
 	}
 
 	draw_with_scale :: proc(texture: k2.Texture, scale: ^f32, scale_speed: f32) {
