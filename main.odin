@@ -145,7 +145,7 @@ Score :: struct {
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
-Game_State :: enum byte { MAIN_MENU, GAME }
+Game_State :: enum byte { MAIN_MENU, GAME, PAUSE }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -985,10 +985,15 @@ step :: proc() -> bool {
 		case .GAME:
 		{
 			if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
+			if k2.key_went_down(.Escape) do state.game_state = .PAUSE
 			env_update()
 			player_update()
 			camera_update()
 			enemies_update()
+		}
+		case .PAUSE:
+		{
+			if k2.key_went_down(.Escape) do state.game_state = .GAME
 		}
 	}
 
@@ -1010,6 +1015,11 @@ step :: proc() -> bool {
 			k2.set_camera(nil)
 
 			ui_draw()
+		}
+		case .PAUSE:
+		{
+			k2.clear(k2.WHITE)
+			k2.draw_text("Pause", 50, 24, k2.BLACK, state.main_font)
 		}
 	}
 
