@@ -47,11 +47,15 @@ state: struct {
 
 		follower,
 		blueberry,
-		strawberry: k2.Texture,
+		strawberry,
+
+		main_menu: k2.Texture,
 	},
 
 	main_font: k2.Font,
-	score: Score
+	score: Score,
+
+	game_state: Game_State,
 }
 
 // STRUCTS ========================c
@@ -120,6 +124,7 @@ Score :: struct {
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
+Game_State :: enum byte { MAIN_MENU, GAME }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -780,6 +785,7 @@ load_assets :: proc() {
 		blueberry = k2.load_texture_from_bytes(#load("res/sprites/blueberry.png")),
 		b_bullet = k2.load_texture_from_bytes(#load("res/sprites/b_bullet.png")),
 		random_block = k2.load_texture_from_bytes(#load("res/sprites/random_block.png")),
+		main_menu = k2.load_texture_from_bytes(#load("res/sprites/main_menu.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -796,6 +802,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.strawberry)
 	k2.destroy_texture(state.textures.blueberry)
 	k2.destroy_texture(state.textures.random_block)
+	k2.destroy_texture(state.textures.main_menu)
 
 	k2.destroy_font(state.main_font)
 }
@@ -811,7 +818,9 @@ init :: proc() {
 	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Bullet Hell", options = {window_mode = .Windowed_Resizable})
 
 	load_assets()
+}
 
+game_init :: proc() {
 	camera_init()
 	env_init()
 	player_init()
@@ -819,28 +828,49 @@ init :: proc() {
 }
 
 step :: proc() -> bool {
-	// UPDATE
 	for !k2.update() {
 		return false
 	}
 
-	if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
-	env_update()
-	player_update()
-	camera_update()
-	enemies_update()
+	// UPDATE
+	switch state.game_state {
+		case .MAIN_MENU:
+		{
+			if k2.key_went_down(.Space) {
+				state.game_state = .GAME
+				game_init()
+			}
+		}
+		case .GAME:
+		{
+			if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
+			env_update()
+			player_update()
+			camera_update()
+			enemies_update()
+		}
+	}
 
 	// DRAW
-	k2.set_camera(state.entity.cam.main)
-	k2.clear(k2.WHITE)
+	switch state.game_state {
+		case .MAIN_MENU:
+		{
+			k2.draw_texture(state.textures.main_menu, 0)
+		}
+		case .GAME:
+		{
+			k2.set_camera(state.entity.cam.main)
+			k2.clear(k2.WHITE)
 
-	env_draw()
-	enemies_draw()
-	player_draw()
+			env_draw()
+			enemies_draw()
+			player_draw()
 
-	k2.set_camera(nil)
+			k2.set_camera(nil)
 
-	ui_draw()
+			ui_draw()
+		}
+	}
 
 	k2.present()
 
