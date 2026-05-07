@@ -35,7 +35,7 @@ state: struct {
 		enemies: [dynamic]Enemy,
 		bullets: [dynamic]Bullet,
 
-		damage_overlay: Entity
+		damage_overlay: Entity,
 	},
 
 	textures: struct {
@@ -234,7 +234,7 @@ env_draw :: proc() {
 
 player_init :: proc() {
 	state.entity.player = {
-		pos = {300, 300},
+		pos = ({f32(MAP_SIZE), f32(MAP_SIZE)}*0.5),
 		size = {f32(state.textures.player.width), f32(state.textures.player.height)},
 		speed = 300,
 
@@ -815,6 +815,14 @@ ui_draw :: proc() {
 	player_health_draw()
 
 	k2.draw_rect_vec(state.env.damage_overlay.pos, state.env.damage_overlay.size, state.env.damage_overlay.clr)
+
+	// first text
+	{
+		text: string = "Survive this hell of a bowl!"
+		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
+
+		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5, 56, clr, state.main_font, k2.measure_text(text, 56, state.main_font)*0.5)
+	}
 }
 
 main_menu_init :: proc() {
