@@ -19,7 +19,10 @@ MIN_ENEMY_COUNT :: 20
 // GLOBALS ========================c
 state: struct {
 	config: struct {
-		show_debug: bool
+		show_debug: bool,
+
+		enemy_spawn_duration, enemy_spawn_time: f32,
+		enemies_started: bool,
 	},
 
 	entity: struct {
@@ -68,6 +71,10 @@ state: struct {
 	score: Score,
 
 	game_state: Game_State,
+} = {
+	config = {
+		enemy_spawn_duration = 5
+	}
 }
 
 // STRUCTS ========================c
@@ -507,6 +514,14 @@ enemies_init :: proc() {
 }
 
 enemies_update :: proc() {
+	if state.config.enemy_spawn_time < state.config.enemy_spawn_duration {
+		state.config.enemy_spawn_time += k2.get_frame_time()
+		return
+	} else if !state.config.enemies_started {
+		enemies_init()
+		state.config.enemies_started = true
+	}
+
 	player := state.entity.player
 
 	// spawn
@@ -670,6 +685,8 @@ enemies_update :: proc() {
 }
 
 enemies_draw :: proc() {
+	if !state.config.enemies_started do return
+
 	for enemy in state.env.enemies {
 		texture: k2.Texture
 
@@ -941,7 +958,6 @@ game_init :: proc() {
 	camera_init()
 	env_init()
 	player_init()
-	enemies_init()
 }
 
 step :: proc() -> bool {
