@@ -49,7 +49,18 @@ state: struct {
 		blueberry,
 		strawberry,
 
-		main_menu: k2.Texture,
+		mm_spoon,
+		mm_bowl,
+		mm_outside,
+		mm_spill,
+		mm_bg: k2.Texture,
+	},
+
+	main_menu: struct {
+		mm_spoon: struct { pos: k2.Vec2, enter_speed, move_speed: f32, has_entered: bool },
+		mm_bowl: struct { scale, scale_speed: f32 },
+		mm_outside: struct { scale, scale_speed: f32 },
+		mm_spill: struct { scale, scale_speed: f32 }
 	},
 
 	main_font: k2.Font,
@@ -251,7 +262,7 @@ player_update :: proc() {
 	player.scale = math.lerp(player.scale, 1, 10 * k2.get_frame_time())
 
 	player.dxn = 0
-	if k2.key_is_held(.A) || k2.key_is_held(.Left) 	do player.dxn.x -= 1
+	if k2.key_is_held(.A) || k2.key_is_held(.Left)  do player.dxn.x -= 1
 	if k2.key_is_held(.D) || k2.key_is_held(.Right) do player.dxn.x += 1
 
 	if k2.key_is_held(.W) || k2.key_is_held(.Up)   do player.dxn.y -= 1
@@ -788,6 +799,71 @@ ui_draw :: proc() {
 	k2.draw_rect_vec(state.env.damage_overlay.pos, state.env.damage_overlay.size, state.env.damage_overlay.clr)
 }
 
+main_menu_init :: proc() {
+	state.main_menu = {
+		mm_spoon = {
+			pos = {f32(SCREEN_WIDTH), 0},
+			enter_speed = 5,
+			move_speed = 30
+		},
+		mm_bowl = { scale_speed = 5 },
+		mm_outside = { scale_speed = 1 },
+		mm_spill = { scale_speed = 2 }
+	}
+}
+
+main_menu_draw :: proc() {
+	// mm_bg
+	k2.draw_texture(state.textures.mm_bg, 0)
+
+	// mm_spill
+	draw_with_scale(state.textures.mm_spill, &state.main_menu.mm_spill.scale, state.main_menu.mm_spill.scale_speed)
+
+	// mm_outside
+	draw_with_scale(state.textures.mm_outside, &state.main_menu.mm_outside.scale, state.main_menu.mm_outside.scale_speed)
+
+	// mm_bowl
+	draw_with_scale(state.textures.mm_bowl, &state.main_menu.mm_bowl.scale, state.main_menu.mm_bowl.scale_speed)
+
+	// mm_spoon
+	{
+		mm_spoon := &state.main_menu.mm_spoon
+
+		amp := f32(SCREEN_WIDTH)*0.1
+		freq: f32 = 2
+
+		if !mm_spoon.has_entered {
+			mm_spoon.pos.x = math.lerp(mm_spoon.pos.x, -amp, mm_spoon.enter_speed * k2.get_frame_time())
+
+			if mm_spoon.pos.x < -amp+5 {
+				mm_spoon.pos.x = -amp
+				mm_spoon.has_entered = true
+			}
+		} else {
+			// oscillate
+			mm_spoon.pos.x += math.sin(f32(k2.get_time()) * freq) * amp * k2.get_frame_time()
+		}
+
+		k2.draw_texture(state.textures.mm_spoon, {mm_spoon.pos.x+amp*2, mm_spoon.pos.y})
+	}
+
+	draw_with_scale :: proc(texture: k2.Texture, scale: ^f32, scale_speed: f32) {
+		size: k2.Vec2 = {f32(texture.width), f32(texture.height)}
+
+		scale^ = math.lerp(scale^, 1, scale_speed * k2.get_frame_time())
+
+		source: k2.Rect = {0, 0, size.x, size.y}
+		dest: k2.Rect = {f32(SCREEN_WIDTH)*0.5, f32(SCREEN_HEIGHT)*0.5, size.x*scale^, size.y*scale^}
+
+		k2.draw_texture_fit(
+			texture,
+			source,
+			dest,
+			size*scale^*0.5
+		)
+	}
+}
+
 load_assets :: proc() {
 	state.textures = {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
@@ -800,7 +876,11 @@ load_assets :: proc() {
 		blueberry = k2.load_texture_from_bytes(#load("res/sprites/blueberry.png")),
 		b_bullet = k2.load_texture_from_bytes(#load("res/sprites/b_bullet.png")),
 		random_block = k2.load_texture_from_bytes(#load("res/sprites/random_block.png")),
-		main_menu = k2.load_texture_from_bytes(#load("res/sprites/main_menu.png")),
+		mm_spoon = k2.load_texture_from_bytes(#load("res/sprites/mm_spoon.png")),
+		mm_bowl = k2.load_texture_from_bytes(#load("res/sprites/mm_bowl.png")),
+		mm_outside = k2.load_texture_from_bytes(#load("res/sprites/mm_outside.png")),
+		mm_spill = k2.load_texture_from_bytes(#load("res/sprites/mm_spill.png")),
+		mm_bg = k2.load_texture_from_bytes(#load("res/sprites/mm_bg.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -817,7 +897,12 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.strawberry)
 	k2.destroy_texture(state.textures.blueberry)
 	k2.destroy_texture(state.textures.random_block)
-	k2.destroy_texture(state.textures.main_menu)
+	k2.destroy_texture(state.textures.random_block)
+	k2.destroy_texture(state.textures.mm_spoon)
+	k2.destroy_texture(state.textures.mm_bowl)
+	k2.destroy_texture(state.textures.mm_outside)
+	k2.destroy_texture(state.textures.mm_spill)
+	k2.destroy_texture(state.textures.mm_bg)
 
 	k2.destroy_font(state.main_font)
 }
@@ -833,6 +918,7 @@ init :: proc() {
 	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Bullet Hell", options = {window_mode = .Windowed_Resizable})
 
 	load_assets()
+	main_menu_init()
 }
 
 game_init :: proc() {
@@ -870,7 +956,7 @@ step :: proc() -> bool {
 	switch state.game_state {
 		case .MAIN_MENU:
 		{
-			k2.draw_texture(state.textures.main_menu, 0)
+			main_menu_draw()
 		}
 		case .GAME:
 		{
