@@ -23,6 +23,8 @@ state: struct {
 
 		enemy_spawn_duration, enemy_spawn_time: f32,
 		enemies_started: bool,
+
+		pause_pos: k2.Vec2
 	},
 
 	entity: struct {
@@ -56,7 +58,9 @@ state: struct {
 		mm_bowl,
 		mm_outside,
 		mm_spill,
-		mm_bg: k2.Texture,
+		mm_bg,
+
+		pause_menu: k2.Texture,
 	},
 
 	main_menu: struct {
@@ -73,7 +77,9 @@ state: struct {
 	game_state: Game_State,
 } = {
 	config = {
-		enemy_spawn_duration = 5
+		enemy_spawn_duration = 5,
+
+		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}
 	}
 }
 
@@ -818,7 +824,7 @@ ui_draw :: proc() {
 
 	// first text
 	{
-		text: string = "Survive this hell of a bowl!"
+		text: string = "Survive!"
 		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
 
 		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5, 56, clr, state.main_font, k2.measure_text(text, 56, state.main_font)*0.5)
@@ -922,6 +928,7 @@ load_assets :: proc() {
 		mm_outside = k2.load_texture_from_bytes(#load("res/sprites/mm_outside.png")),
 		mm_spill = k2.load_texture_from_bytes(#load("res/sprites/mm_spill.png")),
 		mm_bg = k2.load_texture_from_bytes(#load("res/sprites/mm_bg.png")),
+		pause_menu = k2.load_texture_from_bytes(#load("res/sprites/pause_menu.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -944,6 +951,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.mm_outside)
 	k2.destroy_texture(state.textures.mm_spill)
 	k2.destroy_texture(state.textures.mm_bg)
+	k2.destroy_texture(state.textures.pause_menu)
 
 	k2.destroy_font(state.main_font)
 }
@@ -968,6 +976,19 @@ game_init :: proc() {
 	player_init()
 }
 
+game_draw :: proc() {
+	k2.set_camera(state.entity.cam.main)
+	k2.clear(k2.WHITE)
+
+	env_draw()
+	enemies_draw()
+	player_draw()
+
+	k2.set_camera(nil)
+
+	ui_draw()
+}
+
 step :: proc() -> bool {
 	for !k2.update() {
 		return false
@@ -985,15 +1006,23 @@ step :: proc() -> bool {
 		case .GAME:
 		{
 			if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
-			if k2.key_went_down(.Escape) do state.game_state = .PAUSE
+			if k2.key_went_down(.Escape) {
+				state.config.pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}
+				state.game_state = .PAUSE
+			}
 			env_update()
 			player_update()
 			camera_update()
 			enemies_update()
+			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, 10 * k2.get_frame_time())
 		}
 		case .PAUSE:
 		{
-			if k2.key_went_down(.Escape) do state.game_state = .GAME
+			state.config.pause_pos = math.lerp(state.config.pause_pos, 0, 10 * k2.get_frame_time())
+			if k2.key_went_down(.Escape) {
+				state.config.pause_pos = 0
+				state.game_state = .GAME
+			}
 		}
 	}
 
@@ -1005,21 +1034,14 @@ step :: proc() -> bool {
 		}
 		case .GAME:
 		{
-			k2.set_camera(state.entity.cam.main)
-			k2.clear(k2.WHITE)
-
-			env_draw()
-			enemies_draw()
-			player_draw()
-
-			k2.set_camera(nil)
-
-			ui_draw()
+			game_draw()
+			k2.draw_texture(state.textures.pause_menu, state.config.pause_pos)
 		}
 		case .PAUSE:
 		{
-			k2.clear(k2.WHITE)
-			k2.draw_text("Pause", 50, 24, k2.BLACK, state.main_font)
+			game_draw()
+			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {0, 0, 0, 60})
+			k2.draw_texture(state.textures.pause_menu, state.config.pause_pos)
 		}
 	}
 
