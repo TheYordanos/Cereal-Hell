@@ -740,20 +740,20 @@ enemy_spawn_random :: proc() {
 			size = follower_size
 			speed = 100
 			score = 200
-			damage = 100
+			damage = 200
 			idx = rand.int31() % 5
 			multiple_sprite_divider = 5
 		case .STRAWBERRY:
 			size = strawberry_size
 			fire_rate = 2
 			score = 400
-			damage = 30
+			damage = 60
 		case .BLUEBERRY:
 			size = blueberry_size
 			speed = 100
-			fire_rate = 3
+			fire_rate = 2
 			score = 600
-			damage = 20
+			damage = 40
 
 			is_hor: bool = rand.float32() > 0.5
 			dxn = {
