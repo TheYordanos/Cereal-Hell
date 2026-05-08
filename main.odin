@@ -525,7 +525,7 @@ camera_update :: proc() {
 	camera := &state.entity.cam
 	player := state.entity.player
 
-	camera.main.target = player.pos+player.size*0.5
+	camera.main.target = player.pos
 
 	camera.main.target.x = clamp(camera.main.target.x, f32(SCREEN_WIDTH)*0.5, f32(MAP_SIZE)-f32(SCREEN_WIDTH)*0.5)
 	camera.main.target.y = clamp(camera.main.target.y, f32(SCREEN_HEIGHT)*0.5, f32(MAP_SIZE)-f32(SCREEN_HEIGHT)*0.5)
