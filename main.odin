@@ -1026,7 +1026,7 @@ main :: proc() {
 }
 
 init :: proc() {
-	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Bullet Hell", options = {window_mode = .Windowed_Resizable})
+	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Bullet Hell")
 
 	load_assets()
 	main_menu_init()
