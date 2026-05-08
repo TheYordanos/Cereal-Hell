@@ -60,7 +60,9 @@ state: struct {
 		mm_spill,
 		mm_bg,
 
-		pause_menu: k2.Texture,
+		pause_menu,
+
+		game_over: k2.Texture,
 	},
 
 	main_menu: struct {
@@ -151,7 +153,7 @@ Score :: struct {
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
-Game_State :: enum byte { MAIN_MENU, GAME, PAUSE }
+Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -244,7 +246,7 @@ player_init :: proc() {
 		size = {f32(state.textures.player.width), f32(state.textures.player.height)},
 		speed = 300,
 
-		max_health = 10000,
+		max_health = 8000,
 		current_health = 10000,
 
 		gun = {
@@ -267,6 +269,11 @@ player_damage :: proc(amount: f32) {
 
 	camera_shake(5, 0.2)
 	state.env.damage_overlay.clr.a = 120
+
+	// game over
+	if player.current_health <= 0 {
+		state.game_state = .GAME_OVER
+	}
 }
 
 player_update :: proc() {
@@ -929,6 +936,7 @@ load_assets :: proc() {
 		mm_spill = k2.load_texture_from_bytes(#load("res/sprites/mm_spill.png")),
 		mm_bg = k2.load_texture_from_bytes(#load("res/sprites/mm_bg.png")),
 		pause_menu = k2.load_texture_from_bytes(#load("res/sprites/pause_menu.png")),
+		game_over = k2.load_texture_from_bytes(#load("res/sprites/game_over.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -952,6 +960,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.mm_spill)
 	k2.destroy_texture(state.textures.mm_bg)
 	k2.destroy_texture(state.textures.pause_menu)
+	k2.destroy_texture(state.textures.game_over)
 
 	k2.destroy_font(state.main_font)
 }
@@ -1015,6 +1024,8 @@ step :: proc() -> bool {
 			camera_update()
 			enemies_update()
 			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, 10 * k2.get_frame_time())
+
+			if state.config.show_debug && k2.key_went_down(.P) do state.game_state = .GAME_OVER
 		}
 		case .PAUSE:
 		{
@@ -1023,6 +1034,9 @@ step :: proc() -> bool {
 				state.config.pause_pos = 0
 				state.game_state = .GAME
 			}
+		}
+		case .GAME_OVER:
+		{
 		}
 	}
 
@@ -1042,6 +1056,12 @@ step :: proc() -> bool {
 			game_draw()
 			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {0, 0, 0, 60})
 			k2.draw_texture(state.textures.pause_menu, state.config.pause_pos)
+		}
+		case .GAME_OVER:
+		{
+			game_draw()
+			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {255, 255, 255, 200})
+			k2.draw_texture(state.textures.game_over, 0)
 		}
 	}
 
