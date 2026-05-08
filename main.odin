@@ -24,7 +24,7 @@ state: struct {
 		enemy_spawn_duration, enemy_spawn_time: f32,
 		enemies_started: bool,
 
-		pause_pos: k2.Vec2
+		pause_pos, go_title_pos, go_detail_pos: k2.Vec2,
 	},
 
 	entity: struct {
@@ -62,7 +62,8 @@ state: struct {
 
 		pause_menu,
 
-		game_over: k2.Texture,
+		go_title,
+		go_detail: k2.Texture,
 	},
 
 	main_menu: struct {
@@ -81,7 +82,9 @@ state: struct {
 	config = {
 		enemy_spawn_duration = 5,
 
-		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}
+		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
+		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
+		go_detail_pos = {0, f32(SCREEN_HEIGHT)},
 	}
 }
 
@@ -936,7 +939,8 @@ load_assets :: proc() {
 		mm_spill = k2.load_texture_from_bytes(#load("res/sprites/mm_spill.png")),
 		mm_bg = k2.load_texture_from_bytes(#load("res/sprites/mm_bg.png")),
 		pause_menu = k2.load_texture_from_bytes(#load("res/sprites/pause_menu.png")),
-		game_over = k2.load_texture_from_bytes(#load("res/sprites/game_over.png")),
+		go_title = k2.load_texture_from_bytes(#load("res/sprites/go_title.png")),
+		go_detail = k2.load_texture_from_bytes(#load("res/sprites/go_detail.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -960,7 +964,8 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.mm_spill)
 	k2.destroy_texture(state.textures.mm_bg)
 	k2.destroy_texture(state.textures.pause_menu)
-	k2.destroy_texture(state.textures.game_over)
+	k2.destroy_texture(state.textures.go_title)
+	k2.destroy_texture(state.textures.go_detail)
 
 	k2.destroy_font(state.main_font)
 }
@@ -1037,6 +1042,8 @@ step :: proc() -> bool {
 		}
 		case .GAME_OVER:
 		{
+			state.config.go_title_pos = math.lerp(state.config.go_title_pos, 0, 10 * k2.get_frame_time())
+			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, 0, 10 * k2.get_frame_time())
 		}
 	}
 
@@ -1061,7 +1068,9 @@ step :: proc() -> bool {
 		{
 			game_draw()
 			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {255, 255, 255, 200})
-			k2.draw_texture(state.textures.game_over, 0)
+			// k2.draw_texture(state.textures.game_over, 0)
+			k2.draw_texture(state.textures.go_title, state.config.go_title_pos)
+			k2.draw_texture(state.textures.go_detail, state.config.go_detail_pos)
 		}
 	}
 
