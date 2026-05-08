@@ -1073,6 +1073,11 @@ step :: proc() -> bool {
 				restart()
 				state.config.pause_pos = 0
 			}
+
+			if k2.key_went_down(.M) {
+				state.game_state = .MAIN_MENU
+				main_menu_init()
+			}
 		}
 		case .GAME_OVER:
 		{
@@ -1083,6 +1088,11 @@ step :: proc() -> bool {
 				restart()
 				state.config.go_title_pos = 0
 				state.config.go_detail_pos = 0
+			}
+
+			if k2.key_went_down(.M) {
+				state.game_state = .MAIN_MENU
+				main_menu_init()
 			}
 		}
 	}
@@ -1108,6 +1118,7 @@ step :: proc() -> bool {
 
 			k2.draw_text("<Esc> - Resume", {60, 80}, 56, k2.WHITE, state.main_font)
 			k2.draw_text("<R> - Restart", {60, 140}, 56, k2.WHITE, state.main_font)
+			k2.draw_text("<M> - Main Menu", {60, 200}, 56, k2.WHITE, state.main_font)
 		}
 		case .GAME_OVER:
 		{
@@ -1115,6 +1126,9 @@ step :: proc() -> bool {
 			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {255, 255, 255, 200})
 			k2.draw_texture(state.textures.go_title, state.config.go_title_pos)
 			k2.draw_texture(state.textures.go_detail, state.config.go_detail_pos)
+
+			k2.draw_text("<R> - Restart", {300, 280}, 56, k2.GRAY, state.main_font)
+			k2.draw_text("<M> - Main Menu", {300, 340}, 56, k2.GRAY, state.main_font)
 		}
 	}
 
