@@ -63,7 +63,9 @@ state: struct {
 		pause_menu,
 
 		go_title,
-		go_detail: k2.Texture,
+		go_detail,
+
+		health_bar: k2.Texture,
 	},
 
 	main_menu: struct {
@@ -264,7 +266,7 @@ player_init :: proc() {
 		speed = 300,
 
 		max_health = 8000,
-		current_health = 10000,
+		current_health = 8000,
 
 		gun = {
 			size = {f32(state.textures.p_gun.width), f32(state.textures.p_gun.height)},
@@ -422,22 +424,26 @@ player_draw :: proc() {
 player_health_draw :: proc() {
 	player := &state.entity.player
 
-	player.health_clr.r = u8(math.lerp(f32(player.health_clr.r), f32(k2.BLUE.r), 5 * k2.get_frame_time()))
-	player.health_clr.g = u8(math.lerp(f32(player.health_clr.g), f32(k2.BLUE.g), 5 * k2.get_frame_time()))
-	player.health_clr.b = u8(math.lerp(f32(player.health_clr.b), f32(k2.BLUE.b), 5 * k2.get_frame_time()))
-	player.health_clr.a = u8(math.lerp(f32(player.health_clr.a), f32(k2.BLUE.a), 5 * k2.get_frame_time()))
+	player.health_clr.r = u8(math.lerp(f32(player.health_clr.r), 255, 5 * k2.get_frame_time()))
+	player.health_clr.g = u8(math.lerp(f32(player.health_clr.g), 255, 5 * k2.get_frame_time()))
+	player.health_clr.b = u8(math.lerp(f32(player.health_clr.b), 255, 5 * k2.get_frame_time()))
+	player.health_clr.a = u8(math.lerp(f32(player.health_clr.a), 255, 5 * k2.get_frame_time()))
 
 	player.health_scale = math.lerp(player.health_scale, 1, 10 * k2.get_frame_time())
 
-	height: f32 = 10
+	height := f32(state.textures.health_bar.height)
 	margin: k2.Vec2 = 5
 	health_ratio: f32 = player.current_health/player.max_health
 
-	size: k2.Vec2 = {(f32(SCREEN_WIDTH)-margin.x*2) * health_ratio, height}*player.health_scale
+	source_size: k2.Vec2 = {f32(state.textures.health_bar.width)*health_ratio, f32(state.textures.health_bar.height)}
+	dest_size: k2.Vec2 = {(f32(SCREEN_WIDTH)-margin.x*2) * health_ratio, height}*player.health_scale
 	pos: k2.Vec2 = {f32(SCREEN_WIDTH)*0.5, f32(SCREEN_HEIGHT)-margin.y-height*0.5}
-	center := size*0.5
 
-	k2.draw_rect_vec(pos, size, player.health_clr, center)
+	k2.draw_texture_fit(
+		state.textures.health_bar,
+		{f32(state.textures.health_bar.width)-source_size.x, 0, source_size.x, source_size.y},
+		{pos.x, pos.y, dest_size.x, dest_size.y}, dest_size*0.5, 0, player.health_clr
+	)
 }
 
 bullets_update :: proc(bullets: ^[dynamic]Bullet) {
@@ -961,7 +967,6 @@ game_draw :: proc() {
 	ui_draw()
 }
 
-
 load_assets :: proc() {
 	state.textures = {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
@@ -982,6 +987,7 @@ load_assets :: proc() {
 		pause_menu = k2.load_texture_from_bytes(#load("res/sprites/pause_menu.png")),
 		go_title = k2.load_texture_from_bytes(#load("res/sprites/go_title.png")),
 		go_detail = k2.load_texture_from_bytes(#load("res/sprites/go_detail.png")),
+		health_bar = k2.load_texture_from_bytes(#load("res/sprites/health_bar.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -1007,6 +1013,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.pause_menu)
 	k2.destroy_texture(state.textures.go_title)
 	k2.destroy_texture(state.textures.go_detail)
+	k2.destroy_texture(state.textures.health_bar)
 
 	k2.destroy_font(state.main_font)
 }
