@@ -1026,7 +1026,7 @@ main :: proc() {
 }
 
 init :: proc() {
-	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Bullet Hell")
+	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell")
 
 	load_assets()
 	main_menu_init()
