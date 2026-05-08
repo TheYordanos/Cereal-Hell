@@ -175,6 +175,20 @@ check_collision_circle_rec :: proc(center: k2.Vec2, radius: f32, rect: k2.Rect) 
 }
 
 // FUNCTIONS ========================c
+state_reset :: proc() {
+	state.config = {
+		enemy_spawn_duration = 5,
+
+		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
+		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
+		go_detail_pos = {0, f32(SCREEN_HEIGHT)},
+	}
+
+	state.entity = {}
+	state.env = {}
+	state.score = {}
+}
+
 env_init :: proc() {
 	// random blocks
 	for &block in state.env.random_blocks {
@@ -921,6 +935,33 @@ main_menu_draw :: proc() {
 	}
 }
 
+restart :: proc() {
+	state_reset()
+	game_init()
+	main_menu_init()
+}
+
+game_init :: proc() {
+	state.game_state = .GAME
+	camera_init()
+	env_init()
+	player_init()
+}
+
+game_draw :: proc() {
+	k2.set_camera(state.entity.cam.main)
+	k2.clear(k2.WHITE)
+
+	env_draw()
+	enemies_draw()
+	player_draw()
+
+	k2.set_camera(nil)
+
+	ui_draw()
+}
+
+
 load_assets :: proc() {
 	state.textures = {
 		player = k2.load_texture_from_bytes(#load("res/sprites/player.png")),
@@ -984,25 +1025,6 @@ init :: proc() {
 	main_menu_init()
 }
 
-game_init :: proc() {
-	camera_init()
-	env_init()
-	player_init()
-}
-
-game_draw :: proc() {
-	k2.set_camera(state.entity.cam.main)
-	k2.clear(k2.WHITE)
-
-	env_draw()
-	enemies_draw()
-	player_draw()
-
-	k2.set_camera(nil)
-
-	ui_draw()
-}
-
 step :: proc() -> bool {
 	for !k2.update() {
 		return false
@@ -1012,10 +1034,7 @@ step :: proc() -> bool {
 	switch state.game_state {
 		case .MAIN_MENU:
 		{
-			if k2.key_went_down(.Space) {
-				state.game_state = .GAME
-				game_init()
-			}
+			if k2.key_went_down(.Space) do game_init()
 		}
 		case .GAME:
 		{
@@ -1044,6 +1063,8 @@ step :: proc() -> bool {
 		{
 			state.config.go_title_pos = math.lerp(state.config.go_title_pos, 0, 10 * k2.get_frame_time())
 			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, 0, 10 * k2.get_frame_time())
+
+			if k2.key_went_down(.R) do restart()
 		}
 	}
 
