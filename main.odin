@@ -1041,7 +1041,7 @@ step :: proc() -> bool {
 	switch state.game_state {
 		case .MAIN_MENU:
 		{
-			if k2.key_went_down(.Space) do game_init()
+			if k2.key_went_down(.Space) do restart()
 		}
 		case .GAME:
 		{
