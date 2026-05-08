@@ -1054,7 +1054,10 @@ step :: proc() -> bool {
 			player_update()
 			camera_update()
 			enemies_update()
-			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, 10 * k2.get_frame_time())
+
+			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
+			state.config.go_title_pos = math.lerp(state.config.go_title_pos, [2]f32{0, -f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
+			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, [2]f32{0, f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
 
 			if state.config.show_debug && k2.key_went_down(.P) do state.game_state = .GAME_OVER
 		}
@@ -1065,13 +1068,22 @@ step :: proc() -> bool {
 				state.config.pause_pos = 0
 				state.game_state = .GAME
 			}
+
+			if k2.key_went_down(.R) {
+				restart()
+				state.config.pause_pos = 0
+			}
 		}
 		case .GAME_OVER:
 		{
 			state.config.go_title_pos = math.lerp(state.config.go_title_pos, 0, 10 * k2.get_frame_time())
 			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, 0, 10 * k2.get_frame_time())
 
-			if k2.key_went_down(.R) do restart()
+			if k2.key_went_down(.R) {
+				restart()
+				state.config.go_title_pos = 0
+				state.config.go_detail_pos = 0
+			}
 		}
 	}
 
@@ -1085,18 +1097,22 @@ step :: proc() -> bool {
 		{
 			game_draw()
 			k2.draw_texture(state.textures.pause_menu, state.config.pause_pos)
+			k2.draw_texture(state.textures.go_title, state.config.go_title_pos)
+			k2.draw_texture(state.textures.go_detail, state.config.go_detail_pos)
 		}
 		case .PAUSE:
 		{
 			game_draw()
-			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {0, 0, 0, 60})
+			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {0, 0, 0, 140})
 			k2.draw_texture(state.textures.pause_menu, state.config.pause_pos)
+
+			k2.draw_text("<Esc> - Resume", {60, 80}, 56, k2.WHITE, state.main_font)
+			k2.draw_text("<R> - Restart", {60, 140}, 56, k2.WHITE, state.main_font)
 		}
 		case .GAME_OVER:
 		{
 			game_draw()
 			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {255, 255, 255, 200})
-			// k2.draw_texture(state.textures.game_over, 0)
 			k2.draw_texture(state.textures.go_title, state.config.go_title_pos)
 			k2.draw_texture(state.textures.go_detail, state.config.go_detail_pos)
 		}
