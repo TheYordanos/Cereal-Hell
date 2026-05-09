@@ -47,6 +47,7 @@ state: struct {
 		p_bullets,
 		s_bullet,
 		b_bullet,
+		d_bullet,
 
 		border,
 		random_block,
@@ -179,6 +180,7 @@ Score :: struct {
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
+Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY, DROP }
 Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER }
 Game_Stage :: enum byte { BOSS, NORMAL }
 Boss_Attacks :: enum byte { TARGET, ROTATE, REVERSE_ROTATE, PULSE }
@@ -518,6 +520,8 @@ bullets_draw :: proc(bullets: [dynamic]Bullet) {
 				texture = state.textures.s_bullet
 			case .BLUEBERRY:
 				texture = state.textures.b_bullet
+			case .DROP:
+				texture = state.textures.d_bullet
 		}
 
 		k2.draw_texture_fit(
@@ -890,10 +894,10 @@ boss_update :: proc() {
 
 					bullet: Bullet = {
 						pos = group.pos + {math.cos(angle), math.sin(angle)} * group.bullet_dist,
-						size = f32(state.textures.s_bullet.width),
+						size = f32(state.textures.d_bullet.width),
 						center = ({
-							f32(state.textures.s_bullet.width),
-							f32(state.textures.s_bullet.height)
+							f32(state.textures.d_bullet.width),
+							f32(state.textures.d_bullet.height)
 						}*0.5),
 
 						damage = 40,
@@ -904,7 +908,7 @@ boss_update :: proc() {
 						alpha = 255,
 						die_time = 0.3,
 
-						type = .STRAWBERRY
+						type = .DROP
 					}
 
 					append(&group.bullets, bullet)
@@ -1199,6 +1203,7 @@ load_assets :: proc() {
 		p_gun = k2.load_texture_from_bytes(#load("res/sprites/p_gun.png")),
 		p_bullets = k2.load_texture_from_bytes(#load("res/sprites/p_bullets.png")),
 		s_bullet = k2.load_texture_from_bytes(#load("res/sprites/s_bullet.png")),
+		d_bullet = k2.load_texture_from_bytes(#load("res/sprites/d_bullet.png")),
 		border = k2.load_texture_from_bytes(#load("res/sprites/border.png")),
 		follower = k2.load_texture_from_bytes(#load("res/sprites/follower.png")),
 		strawberry = k2.load_texture_from_bytes(#load("res/sprites/strawberry.png")),
@@ -1225,6 +1230,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.p_gun)
 	k2.destroy_texture(state.textures.p_bullets)
 	k2.destroy_texture(state.textures.s_bullet)
+	k2.destroy_texture(state.textures.d_bullet)
 	k2.destroy_texture(state.textures.b_bullet)
 	k2.destroy_texture(state.textures.border)
 	k2.destroy_texture(state.textures.follower)
