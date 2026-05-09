@@ -24,6 +24,9 @@ state: struct {
 		enemy_spawn_duration, enemy_spawn_time: f32,
 		enemies_started: bool,
 
+		boss_start_duration, boss_start_time: f32,
+		boss_started: bool,
+
 		pause_pos, go_title_pos, go_detail_pos: k2.Vec2,
 	},
 
@@ -84,14 +87,6 @@ state: struct {
 
 	game_state: Game_State,
 	game_stage: Game_Stage,
-} = {
-	config = {
-		enemy_spawn_duration = 5,
-
-		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
-		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
-		go_detail_pos = {0, f32(SCREEN_HEIGHT)},
-	}
 }
 
 // STRUCTS ========================c
@@ -204,6 +199,7 @@ check_collision_circle_rec :: proc(center: k2.Vec2, radius: f32, rect: k2.Rect) 
 state_reset :: proc() {
 	state.config = {
 		enemy_spawn_duration = 5,
+		boss_start_duration = 5,
 
 		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
 		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
@@ -1324,11 +1320,10 @@ step :: proc() -> bool {
 			camera_update()
 			if state.config.enemies_started do enemies_update()
 
-			if state.config.enemy_spawn_time < state.config.enemy_spawn_duration do state.config.enemy_spawn_time += k2.get_frame_time()
-
 			switch state.game_stage {
 				case .NORMAL:
-					if state.config.enemy_spawn_time > state.config.enemy_spawn_duration && !state.config.enemies_started {
+					if state.config.enemy_spawn_time < state.config.enemy_spawn_duration do state.config.enemy_spawn_time += k2.get_frame_time()
+					else if !state.config.enemies_started {
 						enemies_init()
 						state.config.enemies_started = true
 					}
@@ -1336,8 +1331,8 @@ step :: proc() -> bool {
 					// spawn
 					if len(state.env.enemies) < MIN_ENEMY_COUNT do enemy_spawn_random()
 				case .BOSS:
-					if state.config.enemy_spawn_time > state.config.enemy_spawn_duration && !state.config.enemies_started do state.config.enemies_started = true
-					boss_update()
+					if state.config.boss_start_time < state.config.boss_start_duration do state.config.boss_start_time += k2.get_frame_time()
+					else do boss_update()
 			}
 
 			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
