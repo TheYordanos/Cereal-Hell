@@ -147,6 +147,9 @@ Enemy :: struct {
 
 Boss :: struct {
 	using e: Entity,
+	attacks: Boss_Attacks,
+
+	fire_rate: f32,
 }
 
 Cam :: struct {
@@ -168,6 +171,7 @@ Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
 Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER }
 Game_Stage :: enum byte { BOSS, NORMAL }
+Boss_Attacks :: enum byte { TARGET, ROTATE, REVERSE_ROTATE, PULSE }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -842,7 +846,9 @@ boss_init :: proc() {
 		collider = {
 			pos.x-col_size.x*0.5, pos.y-col_size.y*0.5,
 			col_size.x, col_size.y
-		}
+		},
+
+		attacks = .REVERSE_ROTATE
 	}
 }
 
@@ -850,17 +856,68 @@ boss_update :: proc() {
 	boss := &state.entity.boss
 	player := &state.entity.player
 
-	dxn: k2.Vec2 = player.pos - boss.pos
-	boss.angle = math.atan2(dxn.y, dxn.x)
+	switch boss.attacks {
+		case .TARGET:
+		{
+			dxn: k2.Vec2 = player.pos - boss.pos
+			boss.angle = math.atan2(dxn.y, dxn.x)
+		}
+		case .ROTATE, .REVERSE_ROTATE:
+		{
+			boss.fire_rate = 10
+
+			bullet_count: i32 = 10
+			mult: f32 = boss.attacks == .ROTATE ? 1 : -1
+
+			boss.angle += linalg.to_radians(f32(30)) * mult * k2.get_frame_time()
+
+			if boss.time < 1 / boss.fire_rate do boss.time += k2.get_frame_time()
+			else {
+				boss.time -= 1 / boss.fire_rate
+
+				for i in 0..<bullet_count {
+					angle := boss.angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(i)))
+
+					bullet: Bullet = {
+						pos = boss.pos,
+						dxn = {math.cos(angle), math.sin(angle)},
+						size = f32(state.textures.b_bullet.width),
+						center = ({
+							f32(state.textures.b_bullet.width),
+							f32(state.textures.b_bullet.height)
+						}*0.5),
+
+						speed = 300,
+						damage = 40,
+
+						scale = 1,
+						max_scale = 3,
+						alpha = 255,
+						die_time = 0.3,
+
+						type = .BLUEBERRY
+					}
+
+					append(&state.env.bullets, bullet)
+				}
+			}
+		}
+		case .PULSE:
+		{
+			boss.angle = linalg.to_radians(f32(90))
+		}
+	}
 }
 
 boss_draw :: proc() {
 	boss := state.entity.boss
 
 	k2.draw_texture(state.textures.boss, boss.pos, boss.center, boss.angle)
-	k2.draw_rect_outline(boss.collider, 2, k2.RED)
 
-	k2.draw_circle({f32(MAP_SIZE), f32(MAP_SIZE)}*0.5, 10, k2.RED)
+	if state.config.show_debug {
+		k2.draw_rect_outline(boss.collider, 2, k2.RED)
+		k2.draw_circle({f32(MAP_SIZE), f32(MAP_SIZE)}*0.5, 10, k2.RED)
+	}
 }
 
 score_add :: proc(amount: i32) {
@@ -1003,7 +1060,6 @@ game_draw :: proc() {
 	k2.clear(k2.WHITE)
 
 	env_draw()
-
 	switch state.game_stage {
 		case .NORMAL:
 			enemies_draw()
