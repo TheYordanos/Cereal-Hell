@@ -577,18 +577,7 @@ enemies_init :: proc() {
 }
 
 enemies_update :: proc() {
-	if state.config.enemy_spawn_time < state.config.enemy_spawn_duration {
-		state.config.enemy_spawn_time += k2.get_frame_time()
-		return
-	} else if !state.config.enemies_started {
-		enemies_init()
-		state.config.enemies_started = true
-	}
-
 	player := state.entity.player
-
-	// spawn
-	if len(state.env.enemies) < MIN_ENEMY_COUNT do enemy_spawn_random()
 
 	// update
 	#reverse for &enemy, i in state.env.enemies {
@@ -776,8 +765,12 @@ enemies_draw :: proc() {
 	}
 }
 
-enemy_spawn_random :: proc() {
-	type := Enemy_Type(rand.int31() % len(Enemy_Type))
+enemy_spawn_specific :: proc(type: Enemy_Type) {
+	enemy_spawn_random(i8(type))
+}
+
+enemy_spawn_random :: proc(type: i8 = -1) {
+	type := type == -1 ? Enemy_Type(rand.int31() % len(Enemy_Type)) : Enemy_Type(type)
 
 	follower_size: k2.Vec2 = {f32(state.textures.follower.width), f32(state.textures.follower.height)}
 	strawberry_size: k2.Vec2 = {f32(state.textures.strawberry.width), f32(state.textures.strawberry.height)}
@@ -919,6 +912,9 @@ boss_update :: proc() {
 
 				append(&boss.groups, group)
 			}
+
+			// follower
+			if len(state.env.enemies) < 10 do enemy_spawn_specific(.FOLLOWER)
 
 			// groups
 			#reverse for &group, i in boss.groups {
@@ -1185,9 +1181,8 @@ game_draw :: proc() {
 	k2.clear(k2.WHITE)
 
 	env_draw()
-	switch state.game_stage {
-		case .NORMAL:
-			enemies_draw()
+	enemies_draw()
+	#partial switch state.game_stage {
 		case .BOSS:
 			boss_draw()
 	}
@@ -1286,11 +1281,21 @@ step :: proc() -> bool {
 			env_update()
 			player_update()
 			camera_update()
+			if state.config.enemies_started do enemies_update()
+
+			if state.config.enemy_spawn_time < state.config.enemy_spawn_duration do state.config.enemy_spawn_time += k2.get_frame_time()
 
 			switch state.game_stage {
 				case .NORMAL:
-					enemies_update()
+					if state.config.enemy_spawn_time > state.config.enemy_spawn_duration && !state.config.enemies_started {
+						enemies_init()
+						state.config.enemies_started = true
+					}
+
+					// spawn
+					if len(state.env.enemies) < MIN_ENEMY_COUNT do enemy_spawn_random()
 				case .BOSS:
+					if state.config.enemy_spawn_time > state.config.enemy_spawn_duration && !state.config.enemies_started do state.config.enemies_started = true
 					boss_update()
 			}
 
