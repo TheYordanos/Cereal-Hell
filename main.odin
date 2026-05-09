@@ -159,7 +159,7 @@ Boss :: struct {
 	using e: Entity,
 	attacks: Boss_Attacks,
 
-	fire_rate: f32,
+	fire_rate, fire_angle: f32,
 	groups: [dynamic]Bullet_Group
 }
 
@@ -179,7 +179,6 @@ Score :: struct {
 
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
-Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY, DROP }
 Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER }
 Game_Stage :: enum byte { BOSS, NORMAL }
@@ -859,7 +858,7 @@ boss_init :: proc() {
 			col_size.x, col_size.y
 		},
 
-		attacks = .TARGET,
+		attacks = .PULSE,
 	}
 }
 
@@ -1018,7 +1017,43 @@ boss_update :: proc() {
 		}
 		case .PULSE:
 		{
-			boss.angle = linalg.to_radians(f32(90))
+			boss.angle += linalg.to_radians(f32(30)) * k2.get_frame_time()
+			boss.fire_rate = 2
+
+			bullet_count: i32 = 20
+
+			if boss.time < 1 / boss.fire_rate do boss.time += k2.get_frame_time()
+			else {
+				boss.time -= 1 / boss.fire_rate
+
+				for i in 0..<bullet_count {
+					angle := boss.fire_angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(i)))
+
+					bullet: Bullet = {
+						pos = boss.pos,
+						dxn = {math.cos(angle), math.sin(angle)},
+						size = f32(state.textures.s_bullet.width),
+						center = ({
+							f32(state.textures.s_bullet.width),
+							f32(state.textures.s_bullet.height)
+						}*0.5),
+
+						speed = 300,
+						damage = 80,
+
+						scale = 1,
+						max_scale = 3,
+						alpha = 255,
+						die_time = 0.3,
+
+						type = .STRAWBERRY
+					}
+
+					append(&state.env.bullets, bullet)
+				}
+
+				boss.fire_angle += linalg.to_radians(360/f32(bullet_count) * 0.5)
+			}
 		}
 	}
 }
