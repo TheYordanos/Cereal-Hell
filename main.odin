@@ -867,6 +867,7 @@ boss_init :: proc() {
 		pos = pos,
 		size = tex_size,
 		center = {tex_size.x*0.8, tex_size.y*0.5},
+		scale = 1,
 
 		max_health = 100000,
 		current_health = 100000,
@@ -1091,7 +1092,6 @@ boss_draw :: proc() {
 		boss.center*boss.scale, boss.angle
 	)
 
-
 	for group in boss.groups {
 		bullets_draw(group.bullets)
 
@@ -1120,6 +1120,19 @@ boss_damage :: proc(amount: f32) {
 	if boss.current_health <= 0 {
 		// state.game_state = .WIN
 	}
+}
+
+boss_health_draw :: proc() {
+	boss := state.entity.boss
+
+	health_ratio: f32 = boss.current_health / boss.max_health
+	height: f32 = 20
+	margin: f32 = 20
+
+	pos: k2.Vec2 = {margin, margin}
+	size: k2.Vec2 = {(f32(SCREEN_WIDTH)-margin*2) * health_ratio, height}
+
+	k2.draw_rect_vec(pos, size, k2.RED)
 }
 
 score_add :: proc(amount: i32) {
@@ -1151,6 +1164,7 @@ score_draw :: proc() {
 ui_draw :: proc() {
 	score_draw()
 	player_health_draw()
+	boss_health_draw()
 
 	k2.draw_rect_vec(state.env.damage_overlay.pos, state.env.damage_overlay.size, state.env.damage_overlay.clr)
 
