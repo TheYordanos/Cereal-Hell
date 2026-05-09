@@ -862,6 +862,8 @@ boss_update :: proc() {
 	boss := &state.entity.boss
 	player := &state.entity.player
 
+	boss.scale = math.lerp(boss.scale, 1, 10 * k2.get_frame_time())
+
 	switch boss.attacks {
 		case .TARGET:
 		{
@@ -874,6 +876,7 @@ boss_update :: proc() {
 			if boss.time < 1 / boss.fire_rate do boss.time += k2.get_frame_time()
 			else {
 				boss.time -= 1 / boss.fire_rate
+				boss.scale = 1.2
 
 				group: Bullet_Group = {
 					dxn = linalg.normalize(dxn),
@@ -983,6 +986,7 @@ boss_update :: proc() {
 			if boss.time < 1 / boss.fire_rate do boss.time += k2.get_frame_time()
 			else {
 				boss.time -= 1 / boss.fire_rate
+				boss.scale = 1.2
 
 				for i in 0..<bullet_count {
 					angle := boss.angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(i)))
@@ -1021,6 +1025,7 @@ boss_update :: proc() {
 			if boss.time < 1 / boss.fire_rate do boss.time += k2.get_frame_time()
 			else {
 				boss.time -= 1 / boss.fire_rate
+				boss.scale = 1.2
 
 				for i in 0..<bullet_count {
 					angle := boss.fire_angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(i)))
@@ -1057,7 +1062,13 @@ boss_update :: proc() {
 boss_draw :: proc() {
 	boss := state.entity.boss
 
-	k2.draw_texture(state.textures.boss, boss.pos, boss.center, boss.angle)
+	k2.draw_texture_fit(
+		state.textures.boss,
+		{0, 0, boss.size.x, boss.size.y},
+		{boss.pos.x, boss.pos.y, boss.size.x*boss.scale, boss.size.y*boss.scale},
+		boss.center*boss.scale, boss.angle
+	)
+
 
 	for group in boss.groups {
 		bullets_draw(group.bullets)
