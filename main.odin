@@ -134,6 +134,15 @@ Bullet :: struct {
 	type: Bullet_Type
 }
 
+Bullet_Group :: struct {
+	using e: Entity,
+
+	bullet_dist: f32,
+	rot_mult: f32,
+
+	bullets: [dynamic]Bullet
+}
+
 Enemy :: struct {
 	using e: Entity,
 	type: Enemy_Type,
@@ -150,6 +159,7 @@ Boss :: struct {
 	attacks: Boss_Attacks,
 
 	fire_rate: f32,
+	groups: [dynamic]Bullet_Group
 }
 
 Cam :: struct {
@@ -251,25 +261,7 @@ env_draw :: proc() {
 	}
 
 	// bullets
-	for bullet in state.env.bullets {
-		texture: k2.Texture
-
-		#partial switch bullet.type {
-			case .STRAWBERRY:
-				texture = state.textures.s_bullet
-			case .BLUEBERRY:
-				texture = state.textures.b_bullet
-		}
-
-		k2.draw_texture_fit(
-			texture,
-			{0, 0, bullet.size.x, bullet.size.y},
-			{bullet.pos.x, bullet.pos.y, bullet.size.x*bullet.scale, bullet.size.y*bullet.scale},
-			bullet.center*bullet.scale,
-			math.atan2(bullet.dxn.y, bullet.dxn.x),
-			{255, 255, 255, bullet.alpha}
-		)
-	}
+	bullets_draw(state.env.bullets)
 }
 
 player_init :: proc() {
@@ -514,6 +506,28 @@ bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 
 		// remove
 		if bullet.remove do unordered_remove(bullets, i)
+	}
+}
+
+bullets_draw :: proc(bullets: [dynamic]Bullet) {
+	for bullet in bullets {
+		texture: k2.Texture
+
+		#partial switch bullet.type {
+			case .STRAWBERRY:
+				texture = state.textures.s_bullet
+			case .BLUEBERRY:
+				texture = state.textures.b_bullet
+		}
+
+		k2.draw_texture_fit(
+			texture,
+			{0, 0, bullet.size.x, bullet.size.y},
+			{bullet.pos.x, bullet.pos.y, bullet.size.x*bullet.scale, bullet.size.y*bullet.scale},
+			bullet.center*bullet.scale,
+			math.atan2(bullet.dxn.y, bullet.dxn.x),
+			{255, 255, 255, bullet.alpha}
+		)
 	}
 }
 
@@ -848,7 +862,7 @@ boss_init :: proc() {
 			col_size.x, col_size.y
 		},
 
-		attacks = .REVERSE_ROTATE
+		attacks = .TARGET,
 	}
 }
 
@@ -861,6 +875,106 @@ boss_update :: proc() {
 		{
 			dxn: k2.Vec2 = player.pos - boss.pos
 			boss.angle = math.atan2(dxn.y, dxn.x)
+			boss.fire_rate = 1.5
+
+			bullet_count: i32 = 10
+
+			if boss.time < 1 / boss.fire_rate do boss.time += k2.get_frame_time()
+			else {
+				boss.time -= 1 / boss.fire_rate
+
+				group: Bullet_Group = {
+					dxn = linalg.normalize(dxn),
+					speed = 400,
+					bullet_dist = 80,
+					rot_mult = rand.float32() > 0.5 ? -1 : 1,
+
+					pos = boss.pos,
+				}
+
+				for i in 0..<bullet_count {
+					angle := group.angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(i)))
+
+					bullet: Bullet = {
+						pos = group.pos + {math.cos(angle), math.sin(angle)} * group.bullet_dist,
+						size = f32(state.textures.s_bullet.width),
+						center = ({
+							f32(state.textures.s_bullet.width),
+							f32(state.textures.s_bullet.height)
+						}*0.5),
+
+						damage = 40,
+						idx = i,
+
+						scale = 1,
+						max_scale = 3,
+						alpha = 255,
+						die_time = 0.3,
+
+						type = .STRAWBERRY
+					}
+
+					append(&group.bullets, bullet)
+				}
+
+				append(&boss.groups, group)
+			}
+
+			// groups
+			#reverse for &group, i in boss.groups {
+				group.pos += group.dxn * group.speed * k2.get_frame_time()
+				group.angle += linalg.to_radians(f32(120)) * k2.get_frame_time() * group.rot_mult
+
+				// bullets
+				#reverse for &bullet, i in group.bullets {
+					// is hit
+					if bullet.is_hit {
+					   bullet.speed = 0
+					   bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
+					   bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
+
+						if bullet.time < bullet.die_time do bullet.time += k2.get_frame_time()
+						else {
+							bullet.is_hit = false
+							bullet.remove = true
+						}
+					}
+					else {
+						// movement
+						angle := group.angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(bullet.idx)))
+						bullet.pos = group.pos + {math.cos(angle), math.sin(angle)} * group.bullet_dist
+						bullet.dxn = {math.cos(angle), math.sin(angle)}
+
+						// boundary
+						if bullet.pos.x < f32(MAP_MARGIN) ||
+						   bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
+						   bullet.pos.y < f32(MAP_MARGIN) ||
+						   bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
+
+							bullet.scale = 1
+							bullet.is_hit = true
+						}
+
+						// player
+						if bullet.type != .PLAYER && check_collision_circle_rec(
+							bullet.pos, bullet.size.x*0.5,
+							{
+								player.pos.x-player.size.x*0.5, player.pos.y-player.size.y*0.5,
+								player.size.x, player.size.y
+							}
+						) {
+							bullet.is_hit = true
+							player_damage(bullet.damage)
+						}
+					}
+
+					// remove
+					if bullet.remove do unordered_remove(&group.bullets, i)
+				}
+
+				// remove
+				if len(group.bullets) == 0 do unordered_remove(&boss.groups, i)
+			}
 		}
 		case .ROTATE, .REVERSE_ROTATE:
 		{
@@ -913,6 +1027,17 @@ boss_draw :: proc() {
 	boss := state.entity.boss
 
 	k2.draw_texture(state.textures.boss, boss.pos, boss.center, boss.angle)
+
+	for group in boss.groups {
+		bullets_draw(group.bullets)
+
+		if state.config.show_debug {
+			for bullet in group.bullets {
+				k2.draw_circle(bullet.pos, 10, k2.BLUE)
+			}
+			k2.draw_circle(group.pos, 10, k2.RED)
+		}
+	}
 
 	if state.config.show_debug {
 		k2.draw_rect_outline(boss.collider, 2, k2.RED)
@@ -1255,6 +1380,8 @@ shutdown :: proc() {
 	delete(state.entity.player.gun.bullets)
 	delete(state.env.enemies)
 	delete(state.env.bullets)
+	for &group in state.entity.boss.groups do delete(group.bullets)
+	delete(state.entity.boss.groups)
 
 	unload_assets()
 
