@@ -29,7 +29,8 @@ state: struct {
 
 	entity: struct {
 		player: Player,
-		cam: Cam
+		cam: Cam,
+		boss: Boss
 	},
 
 	env: struct {
@@ -53,6 +54,7 @@ state: struct {
 		follower,
 		blueberry,
 		strawberry,
+		boss,
 
 		mm_spoon,
 		mm_bowl,
@@ -80,6 +82,7 @@ state: struct {
 	score: Score,
 
 	game_state: Game_State,
+	game_stage: Game_Stage,
 } = {
 	config = {
 		enemy_spawn_duration = 5,
@@ -96,6 +99,7 @@ Entity :: struct {
 	speed: f32,
 	angle: f32,
 	center: k2.Vec2,
+	collider: k2.Rect,
 
 	is_hit: bool,
 	remove: bool,
@@ -141,6 +145,10 @@ Enemy :: struct {
 	idx: i32
 }
 
+Boss :: struct {
+	using e: Entity,
+}
+
 Cam :: struct {
 	main: k2.Camera,
 
@@ -159,6 +167,7 @@ Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY }
 Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER }
+Game_Stage :: enum byte { BOSS, NORMAL }
 
 // HELPER ========================c
 check_collision_recs :: proc(r1, r2: k2.Rect) -> bool {
@@ -193,7 +202,7 @@ state_reset :: proc() {
 
 env_init :: proc() {
 	// random blocks
-	for &block in state.env.random_blocks {
+	if state.game_stage == .NORMAL do for &block in state.env.random_blocks {
 		block_size: k2.Vec2 = {f32(state.textures.random_block.width), f32(state.textures.random_block.height)}
 		block = {
 			pos = {
@@ -232,7 +241,7 @@ env_draw :: proc() {
 	}
 
 	// random blocks
-	for block in state.env.random_blocks {
+	if state.game_stage == .NORMAL do for block in state.env.random_blocks {
 		// k2.draw_rect_vec(block.pos, block.size, k2.LIGHT_GRAY)
 		k2.draw_texture(state.textures.random_block, block.pos)
 	}
@@ -261,7 +270,7 @@ env_draw :: proc() {
 
 player_init :: proc() {
 	state.entity.player = {
-		pos = ({f32(MAP_SIZE), f32(MAP_SIZE)}*0.5),
+		pos = {f32(MAP_MARGIN)+200, f32(MAP_SIZE)*0.5},
 		size = {f32(state.textures.player.width), f32(state.textures.player.height)},
 		speed = 300,
 
@@ -820,6 +829,40 @@ enemy_spawn_random :: proc() {
 	append(&state.env.enemies, enemy)
 }
 
+boss_init :: proc() {
+	tex_size: k2.Vec2 = {f32(state.textures.boss.width), f32(state.textures.boss.height)}
+	pos: k2.Vec2 = {f32(MAP_SIZE), f32(MAP_SIZE)}*0.5
+	col_size: k2.Vec2 = {tex_size.y, tex_size.y}*1.2
+
+	state.entity.boss = {
+		pos = pos,
+		size = tex_size,
+		center = {tex_size.x*0.8, tex_size.y*0.5},
+
+		collider = {
+			pos.x-col_size.x*0.5, pos.y-col_size.y*0.5,
+			col_size.x, col_size.y
+		}
+	}
+}
+
+boss_update :: proc() {
+	boss := &state.entity.boss
+	player := &state.entity.player
+
+	dxn: k2.Vec2 = player.pos - boss.pos
+	boss.angle = math.atan2(dxn.y, dxn.x)
+}
+
+boss_draw :: proc() {
+	boss := state.entity.boss
+
+	k2.draw_texture(state.textures.boss, boss.pos, boss.center, boss.angle)
+	k2.draw_rect_outline(boss.collider, 2, k2.RED)
+
+	k2.draw_circle({f32(MAP_SIZE), f32(MAP_SIZE)}*0.5, 10, k2.RED)
+}
+
 score_add :: proc(amount: i32) {
 	state.score.amount += amount
 	state.score.scale = 2
@@ -857,7 +900,7 @@ ui_draw :: proc() {
 		text: string = "Survive!"
 		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
 
-		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5, 56, clr, state.main_font, k2.measure_text(text, 56, state.main_font)*0.5)
+		if false do k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5, 56, clr, state.main_font, k2.measure_text(text, 56, state.main_font)*0.5)
 	}
 }
 
@@ -952,6 +995,7 @@ game_init :: proc() {
 	camera_init()
 	env_init()
 	player_init()
+	boss_init()
 }
 
 game_draw :: proc() {
@@ -959,7 +1003,13 @@ game_draw :: proc() {
 	k2.clear(k2.WHITE)
 
 	env_draw()
-	enemies_draw()
+
+	switch state.game_stage {
+		case .NORMAL:
+			enemies_draw()
+		case .BOSS:
+			boss_draw()
+	}
 	player_draw()
 
 	k2.set_camera(nil)
@@ -988,6 +1038,7 @@ load_assets :: proc() {
 		go_title = k2.load_texture_from_bytes(#load("res/sprites/go_title.png")),
 		go_detail = k2.load_texture_from_bytes(#load("res/sprites/go_detail.png")),
 		health_bar = k2.load_texture_from_bytes(#load("res/sprites/health_bar.png")),
+		boss = k2.load_texture_from_bytes(#load("res/sprites/boss.png")),
 	}
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
@@ -1014,6 +1065,7 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.go_title)
 	k2.destroy_texture(state.textures.go_detail)
 	k2.destroy_texture(state.textures.health_bar)
+	k2.destroy_texture(state.textures.boss)
 
 	k2.destroy_font(state.main_font)
 }
@@ -1053,7 +1105,13 @@ step :: proc() -> bool {
 			env_update()
 			player_update()
 			camera_update()
-			enemies_update()
+
+			switch state.game_stage {
+				case .NORMAL:
+					enemies_update()
+				case .BOSS:
+					boss_update()
+			}
 
 			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
 			state.config.go_title_pos = math.lerp(state.config.go_title_pos, [2]f32{0, -f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
