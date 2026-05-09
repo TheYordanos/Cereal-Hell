@@ -112,7 +112,9 @@ Player :: struct {
 
 	max_health, current_health: f32,
 	health_scale: f32,
-	health_clr: k2.Color
+	health_clr: k2.Color,
+
+	damage: f32,
 }
 
 Gun :: struct {
@@ -155,7 +157,9 @@ Boss :: struct {
 	attacks: Boss_Attacks,
 
 	fire_rate, fire_angle: f32,
-	groups: [dynamic]Bullet_Group
+	groups: [dynamic]Bullet_Group,
+
+	max_health, current_health: f32,
 }
 
 Cam :: struct {
@@ -270,6 +274,8 @@ player_init :: proc() {
 		max_health = 8000,
 		current_health = 8000,
 
+		damage = 100,
+
 		gun = {
 			size = {f32(state.textures.p_gun.width), f32(state.textures.p_gun.height)},
 			center = {0, f32(state.textures.p_gun.height)*0.5},
@@ -327,6 +333,7 @@ player_update :: proc() {
 
 	collide :: proc(is_hor: bool, dxn: f32) {
 		player := &state.entity.player
+		boss := &state.entity.boss
 
 		has_collided: bool
 		collision_block: Entity
@@ -450,6 +457,7 @@ player_health_draw :: proc() {
 
 bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 	player := state.entity.player
+	boss := state.entity.boss
 
 	#reverse for &bullet, i in bullets {
 		bullet.pos += bullet.dxn * bullet.speed * k2.get_frame_time()
@@ -489,15 +497,26 @@ bullets_update :: proc(bullets: ^[dynamic]Bullet) {
 			}
 
 			// player
-			if bullet.type != .PLAYER && check_collision_circle_rec(
-				bullet.pos, bullet.size.x*0.5,
-				{
-					player.pos.x-player.size.x*0.5, player.pos.y-player.size.y*0.5,
-					player.size.x, player.size.y
+			if bullet.type != .PLAYER {
+				if check_collision_circle_rec(
+					bullet.pos, bullet.size.x*0.5,
+					{
+						player.pos.x-player.size.x*0.5, player.pos.y-player.size.y*0.5,
+						player.size.x, player.size.y
+					}
+				) {
+					bullet.is_hit = true
+					player_damage(bullet.damage)
 				}
-			) {
-				bullet.is_hit = true
-				player_damage(bullet.damage)
+			} else {
+				// boss
+				if state.game_stage == .BOSS && check_collision_circle_rec(
+					bullet.pos, bullet.size.x*0.5,
+					{boss.collider.x, boss.collider.y, boss.collider.w, boss.collider.h}
+				) {
+					bullet.is_hit = true
+					boss_damage(player.damage)
+				}
 			}
 		}
 
@@ -849,6 +868,9 @@ boss_init :: proc() {
 		size = tex_size,
 		center = {tex_size.x*0.8, tex_size.y*0.5},
 
+		max_health = 100000,
+		current_health = 100000,
+
 		collider = {
 			pos.x-col_size.x*0.5, pos.y-col_size.y*0.5,
 			col_size.x, col_size.y
@@ -1084,6 +1106,19 @@ boss_draw :: proc() {
 	if state.config.show_debug {
 		k2.draw_rect_outline(boss.collider, 2, k2.RED)
 		k2.draw_circle({f32(MAP_SIZE), f32(MAP_SIZE)}*0.5, 10, k2.RED)
+	}
+}
+
+boss_damage :: proc(amount: f32) {
+	boss := &state.entity.boss
+
+	boss.current_health -= amount
+
+	camera_shake(3, 0.05)
+
+	// win
+	if boss.current_health <= 0 {
+		// state.game_state = .WIN
 	}
 }
 
