@@ -90,7 +90,8 @@ state: struct {
 		game_start,
 		boss_enter,
 		pause,
-		unpause: k2.Sound
+		unpause,
+		game_over: k2.Sound
 	},
 
 	main_menu: struct {
@@ -329,6 +330,7 @@ player_damage :: proc(amount: f32) {
 	// game over
 	if player.current_health <= 0 {
 		state.game_state = .GAME_OVER
+		k2.play_sound(state.audio.game_over)
 	}
 }
 
@@ -1400,6 +1402,7 @@ load_assets :: proc() {
 		boss_enter = k2.load_sound_from_bytes(#load("res/audio/boss_enter.wav")),
 		pause = k2.load_sound_from_bytes(#load("res/audio/pause.wav")),
 		unpause = k2.load_sound_from_bytes(#load("res/audio/unpause.wav")),
+		game_over = k2.load_sound_from_bytes(#load("res/audio/game_over.wav")),
 	}
 
 	state.audio.p_hurt = k2.create_sound_from_audio_buffer(state.audio.p_hurt_buffer)
@@ -1442,6 +1445,7 @@ unload_assets :: proc() {
 	k2.destroy_sound(state.audio.boss_enter)
 	k2.destroy_sound(state.audio.pause)
 	k2.destroy_sound(state.audio.unpause)
+	k2.destroy_sound(state.audio.game_over)
 
 	k2.destroy_audio_buffer(state.audio.p_hurt_buffer)
 	k2.destroy_audio_buffer(state.audio.e_hurt_buffer)
@@ -1481,10 +1485,14 @@ step :: proc() -> bool {
 	switch state.game_state {
 		case .MAIN_MENU:
 		{
+			k2.set_audio_stream_volume(state.audio.music, 1)
+
 			if k2.key_went_down(.Space) do restart()
 		}
 		case .GAME:
 		{
+			k2.set_audio_stream_volume(state.audio.music, 1)
+
 			if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
 			if k2.key_went_down(.Escape) {
 				state.config.pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}
@@ -1534,11 +1542,11 @@ step :: proc() -> bool {
 
 			state.config.w_title_pos = math.lerp(state.config.w_title_pos, [2]f32{0, -f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
 			state.config.w_detail_pos = math.lerp(state.config.w_detail_pos, [2]f32{0, f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
-
-			if state.config.show_debug && k2.key_went_down(.P) do state.game_state = .GAME_OVER
 		}
 		case .PAUSE:
 		{
+			k2.set_audio_stream_volume(state.audio.music, 0.2)
+
 			state.config.pause_pos = math.lerp(state.config.pause_pos, 0, 10 * k2.get_frame_time())
 			if k2.key_went_down(.Escape) {
 				state.config.pause_pos = 0
@@ -1559,6 +1567,8 @@ step :: proc() -> bool {
 		}
 		case .GAME_OVER:
 		{
+			k2.set_audio_stream_volume(state.audio.music, 0.2)
+
 			state.config.go_title_pos = math.lerp(state.config.go_title_pos, 0, 10 * k2.get_frame_time())
 			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, 0, 10 * k2.get_frame_time())
 
@@ -1575,6 +1585,8 @@ step :: proc() -> bool {
 		}
 		case .WIN:
 		{
+			k2.set_audio_stream_volume(state.audio.music, 0.2)
+
 			state.config.w_title_pos = math.lerp(state.config.w_title_pos, 0, 10 * k2.get_frame_time())
 			state.config.w_detail_pos = math.lerp(state.config.w_detail_pos, 0, 10 * k2.get_frame_time())
 
