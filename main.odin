@@ -1440,8 +1440,22 @@ step :: proc() -> bool {
 					// spawn
 					if len(state.env.enemies) < MIN_ENEMY_COUNT do enemy_spawn_random()
 				case .BOSS:
-					if state.config.boss_start_time < state.config.boss_start_duration do state.config.boss_start_time += k2.get_frame_time()
-					else if !state.config.boss_started do state.config.boss_started = true
+					boss := &state.entity.boss
+
+					if state.config.boss_start_time < state.config.boss_start_duration {
+						state.config.boss_start_time += k2.get_frame_time()
+
+						boss.pos.x = -boss.size.x + (f32(MAP_SIZE)*0.5+boss.size.x)*state.config.boss_start_time/state.config.boss_start_duration
+						boss.collider.x = boss.pos.x-boss.collider.w*0.5
+						boss.collider.y = boss.pos.y-boss.collider.h*0.5
+					}
+					else if !state.config.boss_started {
+						state.config.boss_started = true
+
+						boss.pos.x = f32(MAP_SIZE)*0.5
+						boss.collider.x = boss.pos.x-boss.collider.w*0.5
+						boss.collider.y = boss.pos.y-boss.collider.h*0.5
+					}
 					else do boss_update()
 			}
 
