@@ -16,7 +16,7 @@ MAP_MARGIN :: 100
 
 MIN_ENEMY_COUNT :: 20
 
-BOSS_CHANGE_SCORE :: 200000
+BOSS_CHANGE_SCORE :: 1000
 
 // GLOBALS ========================c
 state: struct {
@@ -87,7 +87,8 @@ state: struct {
 
 		p_hurt,
 		e_hurt,
-		game_start: k2.Sound
+		game_start,
+		boss_enter: k2.Sound
 	},
 
 	main_menu: struct {
@@ -221,7 +222,7 @@ check_collision_circle_rec :: proc(center: k2.Vec2, radius: f32, rect: k2.Rect) 
 state_reset :: proc() {
 	state.config = {
 		enemy_spawn_duration = 3,
-		boss_start_duration = 10,
+		boss_start_duration = 14,
 
 		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
 		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
@@ -1191,9 +1192,12 @@ score_add :: proc(amount: i32) {
 	state.score.angle = rand.float32_range(-30, 30)
 
 	// change stage to boss
-	if state.score.amount >= BOSS_CHANGE_SCORE {
+	if state.score.amount >= BOSS_CHANGE_SCORE && state.game_stage == .NORMAL {
 		state.game_stage = .BOSS
 		state.env.random_blocks = {}
+
+		k2.pause_audio_stream(state.audio.music)
+		k2.play_sound(state.audio.boss_enter)
 	}
 }
 
@@ -1391,6 +1395,7 @@ load_assets :: proc() {
 		e_hurt_buffer = k2.load_audio_buffer_from_bytes(#load("res/audio/e_hurt.wav")),
 
 		game_start = k2.load_sound_from_bytes(#load("res/audio/game_start.wav")),
+		boss_enter = k2.load_sound_from_bytes(#load("res/audio/boss_enter.wav")),
 	}
 
 	state.audio.p_hurt = k2.create_sound_from_audio_buffer(state.audio.p_hurt_buffer)
@@ -1430,6 +1435,7 @@ unload_assets :: proc() {
 	k2.destroy_sound(state.audio.p_hurt)
 	k2.destroy_sound(state.audio.e_hurt)
 	k2.destroy_sound(state.audio.game_start)
+	k2.destroy_sound(state.audio.boss_enter)
 
 	k2.destroy_audio_buffer(state.audio.p_hurt_buffer)
 	k2.destroy_audio_buffer(state.audio.e_hurt_buffer)
@@ -1509,6 +1515,8 @@ step :: proc() -> bool {
 						boss.pos.x = f32(MAP_SIZE)*0.5
 						boss.collider.x = boss.pos.x-boss.collider.w*0.5
 						boss.collider.y = boss.pos.y-boss.collider.h*0.5
+
+						k2.play_audio_stream(state.audio.music)
 					}
 					else do boss_update()
 			}
