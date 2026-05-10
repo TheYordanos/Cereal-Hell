@@ -86,7 +86,8 @@ state: struct {
 		e_hurt_buffer: k2.Audio_Buffer,
 
 		p_hurt,
-		e_hurt: k2.Sound
+		e_hurt,
+		game_start: k2.Sound
 	},
 
 	main_menu: struct {
@@ -219,7 +220,7 @@ check_collision_circle_rec :: proc(center: k2.Vec2, radius: f32, rect: k2.Rect) 
 // FUNCTIONS ========================c
 state_reset :: proc() {
 	state.config = {
-		enemy_spawn_duration = 5,
+		enemy_spawn_duration = 3,
 		boss_start_duration = 10,
 
 		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
@@ -1225,17 +1226,21 @@ ui_draw :: proc() {
 	if state.game_stage == .NORMAL {
 		score_draw()
 
-		text: string = fmt.aprint("Survive! And Get", BOSS_CHANGE_SCORE, "Points!")
-		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
-		y_offset: f32 = 50*state.config.enemy_spawn_time/state.config.enemy_spawn_duration
-		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
+		if state.config.enemy_spawn_time <= state.config.enemy_spawn_duration {
+			text: string = fmt.aprint("Survive! And Get", BOSS_CHANGE_SCORE, "Points!")
+			clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
+			y_offset: f32 = 50*state.config.enemy_spawn_time/state.config.enemy_spawn_duration
+			k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
+		}
 	} else if state.game_stage == .BOSS {
 		boss_health_draw()
 
-		text: string = "BOSS! (aka Spoon)"
-		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.boss_start_time/state.config.boss_start_duration)}
-		y_offset: f32 = 50*state.config.boss_start_time/state.config.boss_start_duration
-		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
+		if state.config.boss_start_time <= state.config.boss_start_duration {
+			text: string = "BOSS! (aka Spoon)"
+			clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.boss_start_time/state.config.boss_start_duration)}
+			y_offset: f32 = 50*state.config.boss_start_time/state.config.boss_start_duration
+			k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
+		}
 	}
 }
 
@@ -1331,6 +1336,8 @@ game_init :: proc() {
 	env_init()
 	player_init()
 	boss_init()
+
+	k2.play_sound(state.audio.game_start)
 }
 
 game_draw :: proc() {
@@ -1382,6 +1389,8 @@ load_assets :: proc() {
 
 		p_hurt_buffer = k2.load_audio_buffer_from_bytes(#load("res/audio/p_hurt.wav")),
 		e_hurt_buffer = k2.load_audio_buffer_from_bytes(#load("res/audio/e_hurt.wav")),
+
+		game_start = k2.load_sound_from_bytes(#load("res/audio/game_start.wav")),
 	}
 
 	state.audio.p_hurt = k2.create_sound_from_audio_buffer(state.audio.p_hurt_buffer)
@@ -1420,6 +1429,7 @@ unload_assets :: proc() {
 
 	k2.destroy_sound(state.audio.p_hurt)
 	k2.destroy_sound(state.audio.e_hurt)
+	k2.destroy_sound(state.audio.game_start)
 
 	k2.destroy_audio_buffer(state.audio.p_hurt_buffer)
 	k2.destroy_audio_buffer(state.audio.e_hurt_buffer)
