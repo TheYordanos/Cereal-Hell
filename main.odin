@@ -80,7 +80,13 @@ state: struct {
 	},
 
 	audio: struct {
-		music: k2.Audio_Stream
+		music: k2.Audio_Stream,
+
+		p_hurt_buffer,
+		e_hurt_buffer: k2.Audio_Buffer,
+
+		p_hurt,
+		e_hurt: k2.Sound
 	},
 
 	main_menu: struct {
@@ -312,6 +318,9 @@ player_damage :: proc(amount: f32) {
 
 	camera_shake(5, 0.2)
 	state.env.damage_overlay.clr.a = 120
+
+	k2.set_sound_pitch(state.audio.p_hurt, rand.float32_range(0.6, 1.4))
+	k2.play_sound(state.audio.p_hurt)
 
 	// game over
 	if player.current_health <= 0 {
@@ -761,6 +770,10 @@ enemies_update :: proc() {
 					enemy.is_hit = true
 					camera_shake(5, 0.2)
 					score_add(enemy.score)
+
+					k2.set_sound_pitch(state.audio.e_hurt, rand.float32_range(0.6, 1.4))
+					k2.play_sound(state.audio.e_hurt)
+
 					break
 				}
 			}
@@ -1365,8 +1378,14 @@ load_assets :: proc() {
 	}
 
 	state.audio = {
-		music = k2.load_audio_stream_from_bytes(#load("res/audio/music.ogg"))
+		music = k2.load_audio_stream_from_bytes(#load("res/audio/music.ogg")),
+
+		p_hurt_buffer = k2.load_audio_buffer_from_bytes(#load("res/audio/p_hurt.wav")),
+		e_hurt_buffer = k2.load_audio_buffer_from_bytes(#load("res/audio/e_hurt.wav")),
 	}
+
+	state.audio.p_hurt = k2.create_sound_from_audio_buffer(state.audio.p_hurt_buffer)
+	state.audio.e_hurt = k2.create_sound_from_audio_buffer(state.audio.e_hurt_buffer)
 
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
 }
@@ -1399,7 +1418,19 @@ unload_assets :: proc() {
 
 	k2.destroy_audio_stream(state.audio.music)
 
+	k2.destroy_sound(state.audio.p_hurt)
+	k2.destroy_sound(state.audio.e_hurt)
+
+	k2.destroy_audio_buffer(state.audio.p_hurt_buffer)
+	k2.destroy_audio_buffer(state.audio.e_hurt_buffer)
+
 	k2.destroy_font(state.main_font)
+}
+
+audio_init :: proc() {
+	k2.set_audio_stream_loop(state.audio.music, true)
+	k2.set_audio_stream_volume(state.audio.music, 1)
+	k2.play_audio_stream(state.audio.music)
 }
 
 main :: proc() {
@@ -1413,11 +1444,8 @@ init :: proc() {
 	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell")
 
 	load_assets()
+	audio_init()
 	main_menu_init()
-
-	k2.set_audio_stream_loop(state.audio.music, true)
-	k2.set_audio_stream_volume(state.audio.music, 1)
-	k2.play_audio_stream(state.audio.music)
 }
 
 step :: proc() -> bool {
