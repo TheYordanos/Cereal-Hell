@@ -88,7 +88,9 @@ state: struct {
 		p_hurt,
 		e_hurt,
 		game_start,
-		boss_enter: k2.Sound
+		boss_enter,
+		pause,
+		unpause: k2.Sound
 	},
 
 	main_menu: struct {
@@ -1396,6 +1398,8 @@ load_assets :: proc() {
 
 		game_start = k2.load_sound_from_bytes(#load("res/audio/game_start.wav")),
 		boss_enter = k2.load_sound_from_bytes(#load("res/audio/boss_enter.wav")),
+		pause = k2.load_sound_from_bytes(#load("res/audio/pause.wav")),
+		unpause = k2.load_sound_from_bytes(#load("res/audio/unpause.wav")),
 	}
 
 	state.audio.p_hurt = k2.create_sound_from_audio_buffer(state.audio.p_hurt_buffer)
@@ -1436,6 +1440,8 @@ unload_assets :: proc() {
 	k2.destroy_sound(state.audio.e_hurt)
 	k2.destroy_sound(state.audio.game_start)
 	k2.destroy_sound(state.audio.boss_enter)
+	k2.destroy_sound(state.audio.pause)
+	k2.destroy_sound(state.audio.unpause)
 
 	k2.destroy_audio_buffer(state.audio.p_hurt_buffer)
 	k2.destroy_audio_buffer(state.audio.e_hurt_buffer)
@@ -1483,6 +1489,7 @@ step :: proc() -> bool {
 			if k2.key_went_down(.Escape) {
 				state.config.pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}
 				state.game_state = .PAUSE
+				k2.play_sound(state.audio.pause)
 			}
 			env_update()
 			player_update()
@@ -1536,6 +1543,7 @@ step :: proc() -> bool {
 			if k2.key_went_down(.Escape) {
 				state.config.pause_pos = 0
 				state.game_state = .GAME
+				k2.play_sound(state.audio.unpause)
 			}
 
 			if k2.key_went_down(.R) {
@@ -1545,6 +1553,7 @@ step :: proc() -> bool {
 
 			if k2.key_went_down(.M) {
 				state.game_state = .MAIN_MENU
+				k2.play_sound(state.audio.unpause)
 				main_menu_init()
 			}
 		}
