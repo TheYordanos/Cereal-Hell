@@ -1186,7 +1186,7 @@ score_draw :: proc() {
 	score.angle = math.lerp(score.angle, 0, 10 * k2.get_frame_time())
 
 	text := fmt.aprint(score.amount)
-	font_size: f32 = 48*score.scale
+	font_size: f32 = 36*score.scale
 	size := k2.measure_text(text, font_size, state.main_font)
 	pos: k2.Vec2 = {120, 50}
 
@@ -1194,7 +1194,7 @@ score_draw :: proc() {
 	k2.draw_text(text, pos, font_size, k2.LIGHT_BLUE, state.main_font, size*0.5, linalg.to_radians(score.angle))
 
 	// main
-	font_size = 56*score.scale
+	font_size = 48*score.scale
 	size = k2.measure_text(text, font_size, state.main_font)
 	k2.draw_text(text, pos, font_size, k2.BLUE, state.main_font, size*0.5, linalg.to_radians(score.angle))
 }
