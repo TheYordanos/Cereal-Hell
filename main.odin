@@ -16,8 +16,7 @@ MAP_MARGIN :: 100
 
 MIN_ENEMY_COUNT :: 20
 
-// BOSS_CHANGE_SCORE :: 200000
-BOSS_CHANGE_SCORE :: 50000
+BOSS_CHANGE_SCORE :: 200000
 
 // GLOBALS ========================c
 state: struct {
@@ -30,7 +29,7 @@ state: struct {
 		boss_start_duration, boss_start_time: f32,
 		boss_started: bool,
 
-		pause_pos, go_title_pos, go_detail_pos: k2.Vec2,
+		pause_pos, go_title_pos, go_detail_pos, w_title_pos, w_detail_pos: k2.Vec2,
 	},
 
 	entity: struct {
@@ -73,6 +72,9 @@ state: struct {
 
 		go_title,
 		go_detail,
+
+		w_title,
+		w_detail,
 
 		health_bar: k2.Texture,
 	},
@@ -182,7 +184,7 @@ Score :: struct {
 Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY, DROP }
-Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER }
+Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER, WIN }
 Game_Stage :: enum byte { NORMAL, BOSS }
 Boss_Attacks :: enum byte { TARGET, ROTATE, REVERSE_ROTATE, PULSE }
 
@@ -211,11 +213,16 @@ state_reset :: proc() {
 		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
 		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
 		go_detail_pos = {0, f32(SCREEN_HEIGHT)},
+
+		w_title_pos = {0, -f32(SCREEN_HEIGHT)},
+		w_detail_pos = {0, f32(SCREEN_HEIGHT)},
 	}
 
 	state.entity = {}
 	state.env = {}
 	state.score = {}
+
+	state.game_stage = .NORMAL
 }
 
 env_init :: proc() {
@@ -878,8 +885,8 @@ boss_init :: proc() {
 		center = {tex_size.x*0.8, tex_size.y*0.5},
 		scale = 1,
 
-		max_health = 100000,
-		current_health = 100000,
+		max_health = 500000,
+		current_health = 500000,
 
 		collider = {
 			pos.x-col_size.x*0.5, pos.y-col_size.y*0.5,
@@ -1126,9 +1133,7 @@ boss_damage :: proc(amount: f32) {
 	camera_shake(3, 0.05)
 
 	// win
-	if boss.current_health <= 0 {
-		// state.game_state = .WIN
-	}
+	if boss.current_health <= 0 do state.game_state = .WIN
 }
 
 boss_health_draw :: proc() {
@@ -1331,6 +1336,8 @@ load_assets :: proc() {
 		pause_menu = k2.load_texture_from_bytes(#load("res/sprites/pause_menu.png")),
 		go_title = k2.load_texture_from_bytes(#load("res/sprites/go_title.png")),
 		go_detail = k2.load_texture_from_bytes(#load("res/sprites/go_detail.png")),
+		w_title = k2.load_texture_from_bytes(#load("res/sprites/w_title.png")),
+		w_detail = k2.load_texture_from_bytes(#load("res/sprites/w_detail.png")),
 		health_bar = k2.load_texture_from_bytes(#load("res/sprites/health_bar.png")),
 		boss = k2.load_texture_from_bytes(#load("res/sprites/boss.png")),
 	}
@@ -1359,6 +1366,8 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.pause_menu)
 	k2.destroy_texture(state.textures.go_title)
 	k2.destroy_texture(state.textures.go_detail)
+	k2.destroy_texture(state.textures.w_title)
+	k2.destroy_texture(state.textures.w_detail)
 	k2.destroy_texture(state.textures.health_bar)
 	k2.destroy_texture(state.textures.boss)
 
@@ -1421,6 +1430,9 @@ step :: proc() -> bool {
 			state.config.go_title_pos = math.lerp(state.config.go_title_pos, [2]f32{0, -f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
 			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, [2]f32{0, f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
 
+			state.config.w_title_pos = math.lerp(state.config.w_title_pos, [2]f32{0, -f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
+			state.config.w_detail_pos = math.lerp(state.config.w_detail_pos, [2]f32{0, f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
+
 			if state.config.show_debug && k2.key_went_down(.P) do state.game_state = .GAME_OVER
 		}
 		case .PAUSE:
@@ -1457,6 +1469,22 @@ step :: proc() -> bool {
 				main_menu_init()
 			}
 		}
+		case .WIN:
+		{
+			state.config.w_title_pos = math.lerp(state.config.w_title_pos, 0, 10 * k2.get_frame_time())
+			state.config.w_detail_pos = math.lerp(state.config.w_detail_pos, 0, 10 * k2.get_frame_time())
+
+			if k2.key_went_down(.R) {
+				restart()
+				state.config.w_title_pos = 0
+				state.config.w_detail_pos = 0
+			}
+
+			if k2.key_went_down(.M) {
+				state.game_state = .MAIN_MENU
+				main_menu_init()
+			}
+		}
 	}
 
 	// DRAW
@@ -1471,6 +1499,8 @@ step :: proc() -> bool {
 			k2.draw_texture(state.textures.pause_menu, state.config.pause_pos)
 			k2.draw_texture(state.textures.go_title, state.config.go_title_pos)
 			k2.draw_texture(state.textures.go_detail, state.config.go_detail_pos)
+			k2.draw_texture(state.textures.w_title, state.config.w_title_pos)
+			k2.draw_texture(state.textures.w_detail, state.config.w_detail_pos)
 		}
 		case .PAUSE:
 		{
@@ -1491,6 +1521,16 @@ step :: proc() -> bool {
 
 			k2.draw_text("<R> - Restart", {300, 280}, 56, k2.GRAY, state.main_font)
 			k2.draw_text("<M> - Main Menu", {300, 340}, 56, k2.GRAY, state.main_font)
+		}
+		case .WIN:
+		{
+			game_draw()
+			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {255, 255, 255, 200})
+			k2.draw_texture(state.textures.w_title, state.config.w_title_pos)
+			k2.draw_texture(state.textures.w_detail, state.config.w_detail_pos)
+
+			k2.draw_text("<R> - Restart", {300, 180}, 56, k2.GRAY, state.main_font)
+			k2.draw_text("<M> - Main Menu", {300, 240}, 56, k2.GRAY, state.main_font)
 		}
 	}
 
