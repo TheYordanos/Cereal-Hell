@@ -12,25 +12,25 @@ I don't think most of us realize how cruel and savage the world inside this bowl
 ---
 CONTROLS (Twin Stick Shooter)
 
-WASD/Arrow - Movement
-Mouse - Aim
-Left Click - Shoot
+- WASD/Arrow - Movement
+- Mouse - Aim
+- Left Click - Shoot
 
 
-Esc - Pause/UnPause
-R - Restart (In pause, game over or win screen)
-M - Main Menu (In pause, game over or win screen)
+- Esc - Pause/UnPause
+- R - Restart (In pause, game over or win screen)
+- M - Main Menu (In pause, game over or win screen)
 
 
 ---
 CREDITS
 
-Language: Odin
-Library: Karl2D
-Visuals: Affinity Designer
-Editor: Focus
-Ref: PureRef
-Audio: OpenGameArt, Pixabay
+- Language: Odin
+- Library: Karl2D
+- Visuals: Affinity Designer
+- Editor: Focus
+- Ref: PureRef
+- Audio: OpenGameArt, Pixabay
 
 
 ...and a lot of coffee of course :D
