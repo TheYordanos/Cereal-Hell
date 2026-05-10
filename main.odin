@@ -91,7 +91,8 @@ state: struct {
 		boss_enter,
 		pause,
 		unpause,
-		game_over: k2.Sound
+		game_over,
+		win: k2.Sound
 	},
 
 	main_menu: struct {
@@ -1174,7 +1175,10 @@ boss_damage :: proc(amount: f32) {
 	camera_shake(3, 0.05)
 
 	// win
-	if boss.current_health <= 0 do state.game_state = .WIN
+	if boss.current_health <= 0 {
+		state.game_state = .WIN
+		k2.play_sound(state.audio.win)
+	}
 }
 
 boss_health_draw :: proc() {
@@ -1403,6 +1407,7 @@ load_assets :: proc() {
 		pause = k2.load_sound_from_bytes(#load("res/audio/pause.wav")),
 		unpause = k2.load_sound_from_bytes(#load("res/audio/unpause.wav")),
 		game_over = k2.load_sound_from_bytes(#load("res/audio/game_over.wav")),
+		win = k2.load_sound_from_bytes(#load("res/audio/win.wav")),
 	}
 
 	state.audio.p_hurt = k2.create_sound_from_audio_buffer(state.audio.p_hurt_buffer)
@@ -1446,6 +1451,7 @@ unload_assets :: proc() {
 	k2.destroy_sound(state.audio.pause)
 	k2.destroy_sound(state.audio.unpause)
 	k2.destroy_sound(state.audio.game_over)
+	k2.destroy_sound(state.audio.win)
 
 	k2.destroy_audio_buffer(state.audio.p_hurt_buffer)
 	k2.destroy_audio_buffer(state.audio.e_hurt_buffer)
@@ -1565,35 +1571,21 @@ step :: proc() -> bool {
 				main_menu_init()
 			}
 		}
-		case .GAME_OVER:
+		case .GAME_OVER, .WIN:
 		{
 			k2.set_audio_stream_volume(state.audio.music, 0.2)
 
-			state.config.go_title_pos = math.lerp(state.config.go_title_pos, 0, 10 * k2.get_frame_time())
-			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, 0, 10 * k2.get_frame_time())
+			title_pos := state.game_state == .GAME_OVER ? &state.config.go_title_pos : &state.config.w_title_pos
+			detail_pos := state.game_state == .GAME_OVER ? &state.config.go_detail_pos : &state.config.w_detail_pos
+
+			title_pos^ = math.lerp(title_pos^, 0, 10 * k2.get_frame_time())
+			detail_pos^ = math.lerp(detail_pos^, 0, 10 * k2.get_frame_time())
 
 			if k2.key_went_down(.R) {
 				restart()
-				state.config.go_title_pos = 0
-				state.config.go_detail_pos = 0
-			}
 
-			if k2.key_went_down(.M) {
-				state.game_state = .MAIN_MENU
-				main_menu_init()
-			}
-		}
-		case .WIN:
-		{
-			k2.set_audio_stream_volume(state.audio.music, 0.2)
-
-			state.config.w_title_pos = math.lerp(state.config.w_title_pos, 0, 10 * k2.get_frame_time())
-			state.config.w_detail_pos = math.lerp(state.config.w_detail_pos, 0, 10 * k2.get_frame_time())
-
-			if k2.key_went_down(.R) {
-				restart()
-				state.config.w_title_pos = 0
-				state.config.w_detail_pos = 0
+				title_pos^ = 0
+				detail_pos^ = 0
 			}
 
 			if k2.key_went_down(.M) {
