@@ -16,7 +16,7 @@ MAP_MARGIN :: 100
 
 MIN_ENEMY_COUNT :: 20
 
-BOSS_CHANGE_SCORE :: 1000
+BOSS_CHANGE_SCORE :: 200000
 
 // GLOBALS ========================c
 state: struct {
