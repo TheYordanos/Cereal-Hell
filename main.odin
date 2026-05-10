@@ -79,6 +79,10 @@ state: struct {
 		health_bar: k2.Texture,
 	},
 
+	audio: struct {
+		music: k2.Audio_Stream
+	},
+
 	main_menu: struct {
 		mm_spoon: struct { pos: k2.Vec2, enter_speed, move_speed: f32, has_entered: bool },
 		mm_bowl: struct { scale, scale_speed: f32 },
@@ -1360,6 +1364,10 @@ load_assets :: proc() {
 		boss = k2.load_texture_from_bytes(#load("res/sprites/boss.png")),
 	}
 
+	state.audio = {
+		music = k2.load_audio_stream_from_bytes(#load("res/audio/music.ogg"))
+	}
+
 	state.main_font = k2.load_font_from_bytes(#load("res/fonts/RussoOne.ttf"), { filter = .Linear })
 }
 
@@ -1389,6 +1397,8 @@ unload_assets :: proc() {
 	k2.destroy_texture(state.textures.health_bar)
 	k2.destroy_texture(state.textures.boss)
 
+	k2.destroy_audio_stream(state.audio.music)
+
 	k2.destroy_font(state.main_font)
 }
 
@@ -1404,12 +1414,18 @@ init :: proc() {
 
 	load_assets()
 	main_menu_init()
+
+	k2.set_audio_stream_loop(state.audio.music, true)
+	k2.set_audio_stream_volume(state.audio.music, 1)
+	k2.play_audio_stream(state.audio.music)
 }
 
 step :: proc() -> bool {
 	for !k2.update() {
 		return false
 	}
+
+	k2.update_audio_stream(state.audio.music)
 
 	// UPDATE
 	switch state.game_state {
