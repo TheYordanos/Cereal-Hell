@@ -787,8 +787,8 @@ enemy_spawn_specific :: proc(type: Enemy_Type) {
 	enemy_spawn_random(i8(type))
 }
 
-enemy_spawn_random :: proc(type: i8 = -1) {
-	type := type == -1 ? Enemy_Type(rand.int31() % len(Enemy_Type)) : Enemy_Type(type)
+enemy_spawn_random :: proc(t: i8 = -1) {
+	type := t == -1 ? Enemy_Type(rand.int31() % len(Enemy_Type)) : Enemy_Type(t)
 
 	follower_size: k2.Vec2 = {f32(state.textures.follower.width), f32(state.textures.follower.height)}
 	strawberry_size: k2.Vec2 = {f32(state.textures.strawberry.width), f32(state.textures.strawberry.height)}
@@ -834,6 +834,12 @@ enemy_spawn_random :: proc(type: i8 = -1) {
 		rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
 		rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
 	}
+	for linalg.distance(rand_pos, state.entity.player.pos) < 50 {
+		rand_pos = {
+			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
+			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
+		}
+	}
 
 	enemy: Enemy = {
 		pos = rand_pos,
@@ -877,7 +883,7 @@ boss_init :: proc() {
 			col_size.x, col_size.y
 		},
 
-		attacks = .PULSE,
+		attacks = .TARGET,
 	}
 }
 
