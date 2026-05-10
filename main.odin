@@ -16,6 +16,9 @@ MAP_MARGIN :: 100
 
 MIN_ENEMY_COUNT :: 20
 
+// BOSS_CHANGE_SCORE :: 200000
+BOSS_CHANGE_SCORE :: 50000
+
 // GLOBALS ========================c
 state: struct {
 	config: struct {
@@ -180,7 +183,7 @@ Firing_Point :: struct { pos, dxn: k2.Vec2 }
 Enemy_Type :: enum byte { FOLLOWER, STRAWBERRY, BLUEBERRY }
 Bullet_Type :: enum byte { PLAYER, STRAWBERRY, BLUEBERRY, DROP }
 Game_State :: enum byte { MAIN_MENU, GAME, PAUSE, GAME_OVER }
-Game_Stage :: enum byte { BOSS, NORMAL }
+Game_Stage :: enum byte { NORMAL, BOSS }
 Boss_Attacks :: enum byte { TARGET, ROTATE, REVERSE_ROTATE, PULSE }
 
 // HELPER ========================c
@@ -203,7 +206,7 @@ check_collision_circle_rec :: proc(center: k2.Vec2, radius: f32, rect: k2.Rect) 
 state_reset :: proc() {
 	state.config = {
 		enemy_spawn_duration = 5,
-		boss_start_duration = 5,
+		boss_start_duration = 10,
 
 		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
 		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
@@ -834,7 +837,7 @@ enemy_spawn_random :: proc(t: i8 = -1) {
 		rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
 		rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
 	}
-	for linalg.distance(rand_pos, state.entity.player.pos) < 50 {
+	for linalg.distance(rand_pos, state.entity.player.pos) < 200 {
 		rand_pos = {
 			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.x),
 			rand.float32_range(f32(MAP_MARGIN), f32(MAP_SIZE-MAP_MARGIN)-size.y)
@@ -1145,6 +1148,12 @@ score_add :: proc(amount: i32) {
 	state.score.amount += amount
 	state.score.scale = 2
 	state.score.angle = rand.float32_range(-30, 30)
+
+	// change stage to boss
+	if state.score.amount >= BOSS_CHANGE_SCORE {
+		state.game_stage = .BOSS
+		state.env.random_blocks = {}
+	}
 }
 
 score_draw :: proc() {
@@ -1170,16 +1179,23 @@ score_draw :: proc() {
 ui_draw :: proc() {
 	score_draw()
 	player_health_draw()
-	boss_health_draw()
+	if state.game_stage == .BOSS do boss_health_draw()
 
 	k2.draw_rect_vec(state.env.damage_overlay.pos, state.env.damage_overlay.size, state.env.damage_overlay.clr)
 
 	// first text
-	{
-		text: string = "Survive!"
+	if state.game_stage == .NORMAL {
+		text: string = fmt.aprint("Survive! And Get", BOSS_CHANGE_SCORE, "Points!")
 		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
+		y_offset: f32 = 50*state.config.enemy_spawn_time/state.config.enemy_spawn_duration
 
-		if false do k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5, 56, clr, state.main_font, k2.measure_text(text, 56, state.main_font)*0.5)
+		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
+	} else if state.game_stage == .BOSS {
+		text: string = "BOSS! (aka Spoon)"
+		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.boss_start_time/state.config.boss_start_duration)}
+		y_offset: f32 = 50*state.config.boss_start_time/state.config.boss_start_duration
+
+		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
 	}
 }
 
