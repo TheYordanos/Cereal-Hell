@@ -1,3 +1,5 @@
+![Cover](res/cover.png)
+
 # Cereal Hell
 
 Cereal Hell is a game jam game made for Bullet Hell Jam 7 Hosted by Harman Kamboj, theChief
