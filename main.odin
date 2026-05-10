@@ -165,6 +165,8 @@ Boss :: struct {
 	groups: [dynamic]Bullet_Group,
 
 	max_health, current_health: f32,
+
+	attack_change_time, attack_change_duration: f32
 }
 
 Cam :: struct {
@@ -893,7 +895,9 @@ boss_init :: proc() {
 			col_size.x, col_size.y
 		},
 
-		attacks = .TARGET,
+		attacks = Boss_Attacks(rand.int31() % len(Boss_Attacks)),
+
+		attack_change_duration = 10,
 	}
 }
 
@@ -903,14 +907,28 @@ boss_update :: proc() {
 
 	boss.scale = math.lerp(boss.scale, 1, 10 * k2.get_frame_time())
 
+	group_bullet_count: i32 = 10
+
+	if state.config.boss_started {
+		if boss.attack_change_time < boss.attack_change_duration do boss.attack_change_time += k2.get_frame_time()
+		else {
+			boss.attack_change_time -= boss.attack_change_duration
+
+			// change attack
+			rand_attack := Boss_Attacks(rand.int31() % len(Boss_Attacks))
+			for rand_attack == boss.attacks do rand_attack = Boss_Attacks(rand.int31() % len(Boss_Attacks))
+			boss.attacks = rand_attack
+
+			boss.time -= 1/boss.fire_rate
+		}
+	}
+
 	switch boss.attacks {
 		case .TARGET:
 		{
 			dxn: k2.Vec2 = player.pos - boss.pos
 			boss.angle = math.atan2(dxn.y, dxn.x)
 			boss.fire_rate = 1.5
-
-			bullet_count: i32 = 10
 
 			if boss.time < 1 / boss.fire_rate do boss.time += k2.get_frame_time()
 			else {
@@ -926,8 +944,8 @@ boss_update :: proc() {
 					pos = boss.pos,
 				}
 
-				for i in 0..<bullet_count {
-					angle := group.angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(i)))
+				for i in 0..<group_bullet_count {
+					angle := group.angle + f32(linalg.to_radians(360/f32(group_bullet_count) * f32(i)))
 
 					bullet: Bullet = {
 						pos = group.pos + {math.cos(angle), math.sin(angle)} * group.bullet_dist,
@@ -956,62 +974,6 @@ boss_update :: proc() {
 
 			// follower
 			if len(state.env.enemies) < 10 do enemy_spawn_specific(.FOLLOWER)
-
-			// groups
-			#reverse for &group, i in boss.groups {
-				group.pos += group.dxn * group.speed * k2.get_frame_time()
-				group.angle += linalg.to_radians(f32(120)) * k2.get_frame_time() * group.rot_mult
-
-				// bullets
-				#reverse for &bullet, i in group.bullets {
-					// is hit
-					if bullet.is_hit {
-					   bullet.speed = 0
-					   bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
-					   bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
-
-						if bullet.time < bullet.die_time do bullet.time += k2.get_frame_time()
-						else {
-							bullet.is_hit = false
-							bullet.remove = true
-						}
-					}
-					else {
-						// movement
-						angle := group.angle + f32(linalg.to_radians(360/f32(bullet_count) * f32(bullet.idx)))
-						bullet.pos = group.pos + {math.cos(angle), math.sin(angle)} * group.bullet_dist
-						bullet.dxn = {math.cos(angle), math.sin(angle)}
-
-						// boundary
-						if bullet.pos.x < f32(MAP_MARGIN) ||
-						   bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
-						   bullet.pos.y < f32(MAP_MARGIN) ||
-						   bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
-
-							bullet.scale = 1
-							bullet.is_hit = true
-						}
-
-						// player
-						if bullet.type != .PLAYER && check_collision_circle_rec(
-							bullet.pos, bullet.size.x*0.5,
-							{
-								player.pos.x-player.size.x*0.5, player.pos.y-player.size.y*0.5,
-								player.size.x, player.size.y
-							}
-						) {
-							bullet.is_hit = true
-							player_damage(bullet.damage)
-						}
-					}
-
-					// remove
-					if bullet.remove do unordered_remove(&group.bullets, i)
-				}
-
-				// remove
-				if len(group.bullets) == 0 do unordered_remove(&boss.groups, i)
-			}
 		}
 		case .ROTATE, .REVERSE_ROTATE:
 		{
@@ -1095,6 +1057,62 @@ boss_update :: proc() {
 				boss.fire_angle += linalg.to_radians(360/f32(bullet_count) * 0.5)
 			}
 		}
+	}
+
+	// groups
+	#reverse for &group, i in boss.groups {
+		group.pos += group.dxn * group.speed * k2.get_frame_time()
+		group.angle += linalg.to_radians(f32(120)) * k2.get_frame_time() * group.rot_mult
+
+		// bullets
+		#reverse for &bullet, i in group.bullets {
+			// is hit
+			if bullet.is_hit {
+			   bullet.speed = 0
+			   bullet.scale += (bullet.max_scale - bullet.scale) * (bullet.time / bullet.die_time)
+			   bullet.alpha = u8(255 - (255 * bullet.time / bullet.die_time))
+
+				if bullet.time < bullet.die_time do bullet.time += k2.get_frame_time()
+				else {
+					bullet.is_hit = false
+					bullet.remove = true
+				}
+			}
+			else {
+				// movement
+				angle := group.angle + f32(linalg.to_radians(360/f32(group_bullet_count) * f32(bullet.idx)))
+				bullet.pos = group.pos + {math.cos(angle), math.sin(angle)} * group.bullet_dist
+				bullet.dxn = {math.cos(angle), math.sin(angle)}
+
+				// boundary
+				if bullet.pos.x < f32(MAP_MARGIN) ||
+				   bullet.pos.x > f32(MAP_SIZE-MAP_MARGIN) ||
+				   bullet.pos.y < f32(MAP_MARGIN) ||
+				   bullet.pos.y > f32(MAP_SIZE-MAP_MARGIN) {
+
+					bullet.scale = 1
+					bullet.is_hit = true
+				}
+
+				// player
+				if bullet.type != .PLAYER && check_collision_circle_rec(
+					bullet.pos, bullet.size.x*0.5,
+					{
+						player.pos.x-player.size.x*0.5, player.pos.y-player.size.y*0.5,
+						player.size.x, player.size.y
+					}
+				) {
+					bullet.is_hit = true
+					player_damage(bullet.damage)
+				}
+			}
+
+			// remove
+			if bullet.remove do unordered_remove(&group.bullets, i)
+		}
+
+		// remove
+		if len(group.bullets) == 0 do unordered_remove(&boss.groups, i)
 	}
 }
 
@@ -1182,24 +1200,24 @@ score_draw :: proc() {
 }
 
 ui_draw :: proc() {
-	score_draw()
 	player_health_draw()
-	if state.game_stage == .BOSS do boss_health_draw()
 
 	k2.draw_rect_vec(state.env.damage_overlay.pos, state.env.damage_overlay.size, state.env.damage_overlay.clr)
 
 	// first text
 	if state.game_stage == .NORMAL {
+		score_draw()
+
 		text: string = fmt.aprint("Survive! And Get", BOSS_CHANGE_SCORE, "Points!")
 		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
 		y_offset: f32 = 50*state.config.enemy_spawn_time/state.config.enemy_spawn_duration
-
 		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
 	} else if state.game_stage == .BOSS {
+		boss_health_draw()
+
 		text: string = "BOSS! (aka Spoon)"
 		clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.boss_start_time/state.config.boss_start_duration)}
 		y_offset: f32 = 50*state.config.boss_start_time/state.config.boss_start_duration
-
 		k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
 	}
 }
@@ -1423,6 +1441,7 @@ step :: proc() -> bool {
 					if len(state.env.enemies) < MIN_ENEMY_COUNT do enemy_spawn_random()
 				case .BOSS:
 					if state.config.boss_start_time < state.config.boss_start_duration do state.config.boss_start_time += k2.get_frame_time()
+					else if !state.config.boss_started do state.config.boss_started = true
 					else do boss_update()
 			}
 
