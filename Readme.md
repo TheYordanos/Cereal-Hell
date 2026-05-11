@@ -34,3 +34,5 @@ CREDITS
 
 
 ...and a lot of coffee of course :D
+
+Check out the game on [itch](https://yordanos.itch.io/cereal-hell)
