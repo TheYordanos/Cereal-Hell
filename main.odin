@@ -1473,7 +1473,11 @@ main :: proc() {
 }
 
 init :: proc() {
-	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell")
+	when ODIN_OS == .JS {
+		k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell", { window_mode = .Windowed_Resizable })
+	} else {
+		k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell")
+	}
 
 	load_assets()
 	audio_init()
@@ -1484,6 +1488,8 @@ step :: proc() -> bool {
 	for !k2.update() {
 		return false
 	}
+
+	k2.set_scissor_rect(k2.Rect{0, 0, f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)})
 
 	k2.update_audio_stream(state.audio.music)
 
