@@ -18,6 +18,8 @@ MIN_ENEMY_COUNT :: 20
 
 BOSS_CHANGE_SCORE :: 200000
 
+screen_dim: k2.Vec2
+
 // GLOBALS ========================c
 state: struct {
 	config: struct {
@@ -228,12 +230,12 @@ state_reset :: proc() {
 		enemy_spawn_duration = 3,
 		boss_start_duration = 14,
 
-		pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
-		go_title_pos = {0, -f32(SCREEN_HEIGHT)},
-		go_detail_pos = {0, f32(SCREEN_HEIGHT)},
+		pause_pos = {screen_dim.x, screen_dim.y},
+		go_title_pos = {0, -screen_dim.y},
+		go_detail_pos = {0, screen_dim.y},
 
-		w_title_pos = {0, -f32(SCREEN_HEIGHT)},
-		w_detail_pos = {0, f32(SCREEN_HEIGHT)},
+		w_title_pos = {0, -screen_dim.y},
+		w_detail_pos = {0, screen_dim.y},
 	}
 
 	state.entity = {}
@@ -258,7 +260,7 @@ env_init :: proc() {
 
 	// damage_overlay
 	state.env.damage_overlay = {
-		size = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)},
+		size = {screen_dim.x, screen_dim.y},
 		clr = { 239, 53, 53, 0 }
 	}
 }
@@ -477,8 +479,8 @@ player_health_draw :: proc() {
 	health_ratio: f32 = player.current_health/player.max_health
 
 	source_size: k2.Vec2 = {f32(state.textures.health_bar.width)*health_ratio, f32(state.textures.health_bar.height)}
-	dest_size: k2.Vec2 = {(f32(SCREEN_WIDTH)-margin.x*2) * health_ratio, height}*player.health_scale
-	pos: k2.Vec2 = {f32(SCREEN_WIDTH)*0.5, f32(SCREEN_HEIGHT)-margin.y-height*0.5}
+	dest_size: k2.Vec2 = {(screen_dim.x-margin.x*2) * health_ratio, height}*player.health_scale
+	pos: k2.Vec2 = {screen_dim.x*0.5, screen_dim.y-margin.y-height*0.5}
 
 	k2.draw_texture_fit(
 		state.textures.health_bar,
@@ -584,7 +586,7 @@ bullets_draw :: proc(bullets: [dynamic]Bullet) {
 camera_init :: proc() {
 	state.entity.cam = {
 		main = {
-			offset = ({f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5),
+			offset = ({screen_dim.x, screen_dim.y}*0.5),
 			zoom = 1
 		},
 		shake_duration = 0.1,
@@ -604,21 +606,21 @@ camera_update :: proc() {
 
 	camera.main.target = player.pos
 
-	camera.main.target.x = clamp(camera.main.target.x, f32(SCREEN_WIDTH)*0.5, f32(MAP_SIZE)-f32(SCREEN_WIDTH)*0.5)
-	camera.main.target.y = clamp(camera.main.target.y, f32(SCREEN_HEIGHT)*0.5, f32(MAP_SIZE)-f32(SCREEN_HEIGHT)*0.5)
+	camera.main.target.x = clamp(camera.main.target.x, screen_dim.x*0.5, f32(MAP_SIZE)-screen_dim.x*0.5)
+	camera.main.target.y = clamp(camera.main.target.y, screen_dim.y*0.5, f32(MAP_SIZE)-screen_dim.y*0.5)
 
 	camera.main.zoom = math.lerp(camera.main.zoom, 1, 10 * k2.get_frame_time())
 
 	if camera.shake_time > 0 {
 		shake: f32 = camera.shake_amount * (camera.shake_time / camera.shake_duration)
-		camera.main.offset = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 + {
+		camera.main.offset = {screen_dim.x, screen_dim.y}*0.5 + {
 			rand.float32_range(-shake, shake),
 			rand.float32_range(-shake, shake)
 		}
 
 		camera.shake_time -= k2.get_frame_time()
 	} else {
-		camera.main.offset = ({f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5)
+		camera.main.offset = ({screen_dim.x, screen_dim.y}*0.5)
 	}
 }
 
@@ -1189,7 +1191,7 @@ boss_health_draw :: proc() {
 	margin: f32 = 20
 
 	pos: k2.Vec2 = {margin, margin}
-	size: k2.Vec2 = {(f32(SCREEN_WIDTH)-margin*2) * health_ratio, height}
+	size: k2.Vec2 = {(screen_dim.x-margin*2) * health_ratio, height}
 
 	k2.draw_rect_vec(pos, size, k2.RED)
 }
@@ -1242,7 +1244,7 @@ ui_draw :: proc() {
 			text: string = fmt.aprint("Survive! And Get", BOSS_CHANGE_SCORE, "Points!")
 			clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.enemy_spawn_time/state.config.enemy_spawn_duration)}
 			y_offset: f32 = 50*state.config.enemy_spawn_time/state.config.enemy_spawn_duration
-			k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
+			k2.draw_text(text, {screen_dim.x, screen_dim.y}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
 		}
 	} else if state.game_stage == .BOSS {
 		boss_health_draw()
@@ -1251,7 +1253,7 @@ ui_draw :: proc() {
 			text: string = "BOSS! (aka Spoon)"
 			clr: k2.Color = {239, 53, 53, 255-u8(255 * state.config.boss_start_time/state.config.boss_start_duration)}
 			y_offset: f32 = 50*state.config.boss_start_time/state.config.boss_start_duration
-			k2.draw_text(text, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
+			k2.draw_text(text, {screen_dim.x, screen_dim.y}*0.5 - {0, y_offset}, 48, clr, state.main_font, k2.measure_text(text, 48, state.main_font)*0.5)
 		}
 	}
 }
@@ -1259,7 +1261,7 @@ ui_draw :: proc() {
 main_menu_init :: proc() {
 	state.main_menu = {
 		mm_spoon = {
-			pos = {f32(SCREEN_WIDTH), 0},
+			pos = {screen_dim.x, 0},
 			enter_speed = 5,
 			move_speed = 30
 		},
@@ -1270,8 +1272,10 @@ main_menu_init :: proc() {
 }
 
 main_menu_draw :: proc() {
+	k2.clear(k2.BLANK)
+
 	// mm_bg
-	k2.draw_texture(state.textures.mm_bg, 0)
+	k2.draw_texture(state.textures.mm_bg, screen_dim*0.5, {f32(state.textures.mm_bg.width), f32(state.textures.mm_bg.height)}*0.5)
 
 	// mm_spill
 	draw_with_scale(state.textures.mm_spill, &state.main_menu.mm_spill.scale, state.main_menu.mm_spill.scale_speed)
@@ -1286,7 +1290,7 @@ main_menu_draw :: proc() {
 	{
 		mm_spoon := &state.main_menu.mm_spoon
 
-		amp := f32(SCREEN_WIDTH)*0.1
+		amp := screen_dim.x*0.1
 		freq: f32 = 2
 
 		if !mm_spoon.has_entered {
@@ -1313,7 +1317,7 @@ main_menu_draw :: proc() {
 		text: string = "Press <Space> to Play"
 		font_size: f32 = 46
 
-		pos: k2.Vec2 = {f32(SCREEN_WIDTH)*0.5, 50}
+		pos: k2.Vec2 = {screen_dim.x*0.5, 50}
 		center := k2.measure_text(text, font_size, state.main_font)*0.5
 
 		k2.draw_text(text, pos, font_size, k2.WHITE, state.main_font, center, linalg.to_radians(inst.rot))
@@ -1325,7 +1329,7 @@ main_menu_draw :: proc() {
 		scale^ = math.lerp(scale^, 1, scale_speed * k2.get_frame_time())
 
 		source: k2.Rect = {0, 0, size.x, size.y}
-		dest: k2.Rect = {f32(SCREEN_WIDTH)*0.5, f32(SCREEN_HEIGHT)*0.5, size.x*scale^, size.y*scale^}
+		dest: k2.Rect = {screen_dim.x*0.5, screen_dim.y*0.5, size.x*scale^, size.y*scale^}
 
 		k2.draw_texture_fit(
 			texture,
@@ -1473,11 +1477,7 @@ main :: proc() {
 }
 
 init :: proc() {
-	when ODIN_OS == .JS {
-		k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell", { window_mode = .Windowed_Resizable })
-	} else {
-		k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell")
-	}
+	k2.init(SCREEN_WIDTH, SCREEN_HEIGHT, "Cereal Hell", { window_mode = .Windowed_Resizable })
 
 	load_assets()
 	audio_init()
@@ -1489,8 +1489,7 @@ step :: proc() -> bool {
 		return false
 	}
 
-	k2.set_scissor_rect(k2.Rect{0, 0, f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)})
-
+	screen_dim = k2.get_screen_size()
 	k2.update_audio_stream(state.audio.music)
 
 	// UPDATE
@@ -1507,7 +1506,7 @@ step :: proc() -> bool {
 
 			if k2.key_went_down(.Enter) do state.config.show_debug = !state.config.show_debug
 			if k2.key_went_down(.Escape) {
-				state.config.pause_pos = {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}
+				state.config.pause_pos = {screen_dim.x, screen_dim.y}
 				state.game_state = .PAUSE
 				k2.play_sound(state.audio.pause)
 			}
@@ -1548,12 +1547,12 @@ step :: proc() -> bool {
 					else do boss_update()
 			}
 
-			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
-			state.config.go_title_pos = math.lerp(state.config.go_title_pos, [2]f32{0, -f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
-			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, [2]f32{0, f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
+			state.config.pause_pos = math.lerp(state.config.pause_pos, [2]f32{screen_dim.x, screen_dim.y}, 5 * k2.get_frame_time())
+			state.config.go_title_pos = math.lerp(state.config.go_title_pos, [2]f32{0, -screen_dim.y}, 5 * k2.get_frame_time())
+			state.config.go_detail_pos = math.lerp(state.config.go_detail_pos, [2]f32{0, screen_dim.y}, 5 * k2.get_frame_time())
 
-			state.config.w_title_pos = math.lerp(state.config.w_title_pos, [2]f32{0, -f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
-			state.config.w_detail_pos = math.lerp(state.config.w_detail_pos, [2]f32{0, f32(SCREEN_HEIGHT)}, 5 * k2.get_frame_time())
+			state.config.w_title_pos = math.lerp(state.config.w_title_pos, [2]f32{0, -screen_dim.y}, 5 * k2.get_frame_time())
+			state.config.w_detail_pos = math.lerp(state.config.w_detail_pos, [2]f32{0, screen_dim.y}, 5 * k2.get_frame_time())
 		}
 		case .PAUSE:
 		{
@@ -1619,7 +1618,7 @@ step :: proc() -> bool {
 		case .PAUSE:
 		{
 			game_draw()
-			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {0, 0, 0, 140})
+			k2.draw_rect_vec(0, {screen_dim.x, screen_dim.y}, {0, 0, 0, 140})
 			k2.draw_texture(state.textures.pause_menu, state.config.pause_pos)
 
 			k2.draw_text("<Esc> - Resume", {60, 80}, 56, k2.WHITE, state.main_font)
@@ -1629,7 +1628,7 @@ step :: proc() -> bool {
 		case .GAME_OVER:
 		{
 			game_draw()
-			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {255, 255, 255, 200})
+			k2.draw_rect_vec(0, {screen_dim.x, screen_dim.y}, {255, 255, 255, 200})
 			k2.draw_texture(state.textures.go_title, state.config.go_title_pos)
 			k2.draw_texture(state.textures.go_detail, state.config.go_detail_pos)
 
@@ -1639,7 +1638,7 @@ step :: proc() -> bool {
 		case .WIN:
 		{
 			game_draw()
-			k2.draw_rect_vec(0, {f32(SCREEN_WIDTH), f32(SCREEN_HEIGHT)}, {255, 255, 255, 200})
+			k2.draw_rect_vec(0, {screen_dim.x, screen_dim.y}, {255, 255, 255, 200})
 			k2.draw_texture(state.textures.w_title, state.config.w_title_pos)
 			k2.draw_texture(state.textures.w_detail, state.config.w_detail_pos)
 
